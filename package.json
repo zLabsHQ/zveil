@@ -1,0 +1,12 @@
+{
+  "name": "zveil",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "dev": "pnpm --filter @zveil/web dev",
+    "build": "pnpm --filter @zveil/web build",
+    "scanner": "cargo run --manifest-path services/scanner/Cargo.toml",
+    "test": "pnpm -r test"
+  }
+}

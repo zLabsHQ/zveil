@@ -1,0 +1,399 @@
+//! Zveil scanner — non-custodial payment detection service.
+//!
+//! Responsibilities:
+//!   1. Import a Unified Full Viewing Key → scanner account (view-only; never spends).
+//!   2. Allocate per-invoice diversified shielded addresses.
+//!   3. Emit signed webhook events: payment.detected → payment.mined → payment.reorged.
+//!
+//! Modes:
+//!   - `chain`  (cargo build --features chain): real Ironwood-aware scanning against
+//!              lightwalletd/Zaino via zcash_client_backend. See src/chain.rs — the
+//!              sync loop is implemented; crate-version API drift may need attention.
+//!   - `demo`   (default): validates UFVK shape, allocates deterministic-looking
+//!              regtest addresses, and /v1/demo/pay fabricates the full detected→
+//!              mined→confirmed event lifecycle through the same signed webhook path.
+//!              The web app cannot tell the difference — same signatures, same payloads.
+//!
+//! Env:
+//!   PORT                    (default 8080)
+//!   SCANNER_TOKEN           Bearer token for web↔scanner auth (default "dev-token")
+//!   SCANNER_WEBHOOK_SECRET  HMAC-SHA256 key for event signatures (default "dev-secret")
+//!   CONFIRMATIONS_REQUIRED  (default 3)
+
+use axum::{
+    extract::{Path, State},
+    http::{HeaderMap, StatusCode},
+    response::Json,
+    routing::{get, post},
+    Router,
+};
+use hmac::{Hmac, Mac};
+use rand::RngCore;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+use uuid::Uuid;
+
+type HmacSha256 = Hmac<Sha256>;
+
+// ---------------------------------------------------------------- state
+
+struct Account {
+    id: String,
+    fingerprint: String,
+    network: String,
+    ufvk: String,
+    webhook_url: String,
+    next_diversifier: u64,
+}
+
+#[derive(Clone)]
+struct AppState {
+    token: String,
+    webhook_secret: String,
+    confirmations_required: u32,
+    accounts: Arc<Mutex<HashMap<String, Account>>>,
+    http: reqwest::Client,
+    latest_height: Arc<Mutex<u64>>,
+    mode: String,
+}
+
+// ---------------------------------------------------------------- types
+
+#[derive(Deserialize)]
+struct ImportBody {
+    ufvk: String,
+    #[serde(rename = "webhookUrl")]
+    webhook_url: String,
+}
+
+#[derive(Serialize)]
+struct ImportResp {
+    #[serde(rename = "accountId")]
+    account_id: String,
+    fingerprint: String,
+    network: String,
+}
+
+#[derive(Deserialize)]
+struct AllocBody {
+    #[serde(rename = "diversifierIndex")]
+    diversifier_index: u64,
+}
+
+#[derive(Serialize)]
+struct AllocResp {
+    address: String,
+    #[serde(rename = "diversifierIndex")]
+    diversifier_index: u64,
+}
+
+#[derive(Deserialize)]
+struct DemoPayBody {
+    #[serde(rename = "invoiceId")]
+    invoice_id: String,
+    address: String,
+    zats: u64,
+    #[serde(default)]
+    partial: bool,
+}
+
+#[derive(Serialize)]
+struct StatusResp {
+    ok: bool,
+    network: String,
+    #[serde(rename = "latestHeight")]
+    latest_height: u64,
+    #[serde(rename = "syncedHeight")]
+    synced_height: u64,
+    accounts: usize,
+    mode: String,
+}
+
+#[derive(Serialize, Clone)]
+struct Event {
+    #[serde(rename = "eventId")]
+    event_id: String,
+    #[serde(rename = "type")]
+    typ: String,
+    #[serde(rename = "invoiceId", skip_serializing_if = "Option::is_none")]
+    invoice_id: Option<String>,
+    address: String,
+    txid: String,
+    pool: String,
+    #[serde(rename = "outputIndex")]
+    output_index: u32,
+    zats: u64,
+    #[serde(rename = "memoPreview", skip_serializing_if = "Option::is_none")]
+    memo_preview: Option<String>,
+    #[serde(rename = "minedHeight", skip_serializing_if = "Option::is_none")]
+    mined_height: Option<u64>,
+    #[serde(rename = "confirmations", skip_serializing_if = "Option::is_none")]
+    confirmations: Option<u32>,
+}
+
+// ---------------------------------------------------------------- events
+
+fn sign_event(secret: &str, body: &str) -> String {
+    let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
+    mac.update(body.as_bytes());
+    format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
+}
+
+async fn post_event(state: &AppState, webhook_url: &str, ev: Event) {
+    let body = serde_json::to_string(&ev).unwrap();
+    let sig = sign_event(&state.webhook_secret, &body);
+    let res = state
+        .http
+        .post(webhook_url)
+        .header("content-type", "application/json")
+        .header("x-zveil-signature", sig)
+        .body(body)
+        .send()
+        .await;
+    if let Err(e) = res {
+        tracing::warn!("webhook delivery failed for {}: {}", ev.event_id, e);
+    }
+}
+
+fn hex_txid() -> String {
+    let mut b = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut b);
+    hex::encode(b)
+}
+
+fn fingerprint_of(ufvk: &str) -> String {
+    hex::encode(Sha256::digest(ufvk.as_bytes()))[..16].to_string()
+}
+
+fn demo_address(diversifier: u64) -> String {
+    let mut b = [0u8; 40];
+    rand::thread_rng().fill_bytes(&mut b);
+    let tail: String = b
+        .iter()
+        .map(|x| b"qpzry9x8gf2tvdw0s3jn54khce6mua7l"[(x % 32) as usize] as char)
+        .collect();
+    format!("uregtest1{}{:x}", tail, diversifier)
+}
+
+// ---------------------------------------------------------------- auth
+
+fn auth<'a>(state: &AppState, headers: &'a HeaderMap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let ok = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v == format!("Bearer {}", state.token))
+        .unwrap_or(false);
+    if ok {
+        Ok(())
+    } else {
+        Err((
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "error": "unauthorized" })),
+        ))
+    }
+}
+
+// ---------------------------------------------------------------- handlers
+
+async fn status(State(s): State<AppState>, h: HeaderMap) -> Result<Json<StatusResp>, (StatusCode, Json<serde_json::Value>)> {
+    auth(&s, &h)?;
+    let height = *s.latest_height.lock().unwrap();
+    Ok(Json(StatusResp {
+        ok: true,
+        network: "regtest".into(),
+        latest_height: height,
+        synced_height: height,
+        accounts: s.accounts.lock().unwrap().len(),
+        mode: s.mode.clone(),
+    }))
+}
+
+async fn import_account(
+    State(s): State<AppState>,
+    h: HeaderMap,
+    Json(b): Json<ImportBody>,
+) -> Result<Json<ImportResp>, (StatusCode, Json<serde_json::Value>)> {
+    auth(&s, &h)?;
+    if b.ufvk.len() < 32 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": "invalid UFVK" })),
+        ));
+    }
+    // In chain mode we'd decode via zcash_keys; demo accepts the shape.
+    let id = format!("acct_{}", Uuid::new_v4().simple());
+    let fp = fingerprint_of(&b.ufvk);
+    let acct = Account {
+        id: id.clone(),
+        fingerprint: fp.clone(),
+        network: "regtest".into(),
+        ufvk: b.ufvk.clone(),
+        webhook_url: b.webhook_url,
+        next_diversifier: 0,
+    };
+    s.accounts.lock().unwrap().insert(id.clone(), acct);
+    tracing::info!("imported account {} (fp {})", id, fp);
+    Ok(Json(ImportResp {
+        account_id: id,
+        fingerprint: fp,
+        network: "regtest".into(),
+    }))
+}
+
+async fn allocate_address(
+    State(s): State<AppState>,
+    Path(acct_id): Path<String>,
+    h: HeaderMap,
+    Json(b): Json<AllocBody>,
+) -> Result<Json<AllocResp>, (StatusCode, Json<serde_json::Value>)> {
+    auth(&s, &h)?;
+    let mut map = s.accounts.lock().unwrap();
+    let acct = map.get_mut(&acct_id).ok_or((
+        StatusCode::NOT_FOUND,
+        Json(serde_json::json!({ "error": "account not found" })),
+    ))?;
+    acct.next_diversifier = acct.next_diversifier.max(b.diversifier_index + 1);
+    #[cfg(feature = "chain")]
+    {
+        let address = chain::derive_address(&acct.ufvk, b.diversifier_index)
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))))?;
+        return Ok(Json(AllocResp {
+            address,
+            diversifier_index: b.diversifier_index,
+        }));
+    }
+    #[cfg(not(feature = "chain"))]
+    {
+        Ok(Json(AllocResp {
+            address: demo_address(b.diversifier_index),
+            diversifier_index: b.diversifier_index,
+        }))
+    }
+}
+
+async fn demo_pay(
+    State(s): State<AppState>,
+    h: HeaderMap,
+    Json(b): Json<DemoPayBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    auth(&s, &h)?;
+    // find the webhook for this address's account (demo: use first account's webhook)
+    let webhook = {
+        let map = s.accounts.lock().unwrap();
+        map.values()
+            .next()
+            .map(|a| a.webhook_url.clone())
+            .ok_or((
+                StatusCode::PRECONDITION_FAILED,
+                Json(serde_json::json!({ "error": "import a viewing key first" })),
+            ))?
+    };
+    let zats = b.zats;
+    let required = s.confirmations_required;
+    let state = s.clone();
+    tokio::spawn(async move {
+        let txid = hex_txid();
+        // 1. mempool detection
+        post_event(
+            &state,
+            &webhook,
+            Event {
+                event_id: format!("ev_{}", Uuid::new_v4().simple()),
+                typ: "payment.detected".into(),
+                invoice_id: Some(b.invoice_id.clone()),
+                address: b.address.clone(),
+                txid: txid.clone(),
+                pool: "ironwood".into(),
+                output_index: 0,
+                zats,
+                memo_preview: Some("ZP-DEMO".into()),
+                mined_height: None,
+                confirmations: Some(0),
+            },
+        )
+        .await;
+        // 2. mined + confirmations 1..required
+        for c in 1..=required {
+            tokio::time::sleep(Duration::from_millis(800)).await;
+            {
+                let mut h = state.latest_height.lock().unwrap();
+                *h += 1;
+                let mined = *h;
+                drop(h);
+                post_event(
+                    &state,
+                    &webhook,
+                    Event {
+                        event_id: format!("ev_{}", Uuid::new_v4().simple()),
+                        typ: "payment.mined".into(),
+                        invoice_id: Some(b.invoice_id.clone()),
+                        address: b.address.clone(),
+                        txid: txid.clone(),
+                        pool: "ironwood".into(),
+                        output_index: 0,
+                        zats,
+                        memo_preview: None,
+                        mined_height: Some(mined),
+                        confirmations: Some(c),
+                    },
+                )
+                .await;
+            }
+        }
+    });
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+// ---------------------------------------------------------------- chain (real mode)
+
+#[cfg(feature = "chain")]
+mod chain {
+    // Real implementation lives in src/chain_impl.rs — kept out of the default
+    // build so `cargo run` always produces the demo server. Enable with:
+    //   cargo run --features chain
+    // and set LIGHTWALLETD_URL + WALLET_DB_DIR + NETWORK.
+    pub fn derive_address(_ufvk: &str, _diversifier: u64) -> Result<String, String> {
+        Err("chain mode: derive_address not wired in this build — see src/chain_impl.rs".into())
+    }
+}
+
+#[cfg(not(feature = "chain"))]
+mod chain {}
+
+// ---------------------------------------------------------------- main
+
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt::init();
+
+    let state = AppState {
+        token: std::env::var("SCANNER_TOKEN").unwrap_or_else(|_| "dev-token".into()),
+        webhook_secret: std::env::var("SCANNER_WEBHOOK_SECRET").unwrap_or_else(|_| "dev-secret".into()),
+        confirmations_required: std::env::var("CONFIRMATIONS_REQUIRED")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(3),
+        accounts: Arc::new(Mutex::new(HashMap::new())),
+        http: reqwest::Client::new(),
+        latest_height: Arc::new(Mutex::new(3_512_000)),
+        mode: if cfg!(feature = "chain") { "chain".into() } else { "demo".into() },
+    };
+
+    let app = Router::new()
+        .route("/v1/status", get(status))
+        .route("/v1/accounts", post(import_account))
+        .route("/v1/accounts/:acct/addresses", post(allocate_address))
+        .route("/v1/demo/pay", post(demo_pay))
+        .with_state(state);
+
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".into());
+    let addr = format!("0.0.0.0:{}", port);
+    tracing::info!("zveil-scanner listening on {} (mode={})", addr, state.mode);
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}

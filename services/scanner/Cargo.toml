@@ -1,0 +1,31 @@
+[package]
+name = "zveil-scanner"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json"] }
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+rand = "0.8"
+
+# Real chain mode (cargo build --features chain). Requires librustzcash crates
+# pinned to versions matching the deployed lightwalletd/Zaino. See src/chain.rs.
+zcash_keys = { version = "0.10", optional = true }
+zcash_address = { version = "0.9", optional = true }
+zcash_protocol = { version = "0.6", optional = true }
+zcash_client_backend = { version = "0.24", features = ["lightwalletd-tonic"], optional = true }
+zcash_client_sqlite = { version = "0.24", optional = true }
+
+[features]
+default = []
+chain = ["zcash_keys", "zcash_address", "zcash_protocol", "zcash_client_backend", "zcash_client_sqlite"]
