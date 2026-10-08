@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { disclosures, invoices, payments, workspaces } from "@zveil/db";
@@ -10,10 +11,10 @@ import { zatsToZec } from "@zveil/zip321";
 import { truncateAddress } from "@/lib/utils";
 import { Eye } from "lucide-react";
 
-export const dynamic = "force-dynamic";
 /* eslint-disable react-hooks/purity -- server component; render-time clocks are fine here */
 
 export default async function DisclosurePage({ params }: { params: Promise<{ token: string }> }) {
+  await connection();
   const { token } = await params;
   const d = db().select().from(disclosures).where(eq(disclosures.token, token)).get();
   if (!d || d.revokedAt || d.expiresAt < Date.now()) {
@@ -92,3 +93,6 @@ export default async function DisclosurePage({ params }: { params: Promise<{ tok
     </div>
   );
 }
+
+// Data comes from SQLite/scanner at request time — never prerender.
+export const instant = false;

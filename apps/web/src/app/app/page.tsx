@@ -1,9 +1,11 @@
+import { connection } from "next/server";
 import Link from "next/link";
 import { db, workspace } from "@/lib/db";
 import { invoices, payments } from "@zveil/db";
 import { eq, isNull } from "drizzle-orm";
 import { Amount } from "@/components/money/amount";
-import { Card, Stat } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { Stat } from "@/components/ui/stat";
 import { EmptyState, Banner } from "@/components/feedback/empty-state";
 import { StatusBadge } from "@/components/status/status-badge";
 import { FileText, Plus } from "lucide-react";
@@ -12,7 +14,6 @@ import { zatsToZec } from "@zveil/zip321";
 import { zecUsd, fiatForZats } from "@/lib/pricing";
 
 export const metadata = { title: "Dashboard" };
-export const dynamic = "force-dynamic";
 
 /* eslint-disable react-hooks/purity -- server component; render-time clocks are fine here */
 
@@ -32,6 +33,7 @@ function toBadge(s: string): BadgeStatus {
 }
 
 export default async function Dashboard() {
+  await connection();
   const ws = workspace();
   const rate = await zecUsd();
   const invs = db().select().from(invoices).where(eq(invoices.workspaceId, ws.id)).all();
@@ -90,7 +92,7 @@ export default async function Dashboard() {
         </Stat>
       </div>
 
-      <Card>
+      <Card className="gap-0 border border-border py-0 shadow-xs ring-0">
         <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
           <div className="text-sm font-semibold text-ink">Recent invoices</div>
           <Link href="/app/invoices" className="text-[13px] font-medium text-brand-600 hover:text-brand-700">
@@ -139,3 +141,6 @@ export default async function Dashboard() {
     </div>
   );
 }
+
+// Data comes from SQLite/scanner at request time — never prerender.
+export const instant = false;

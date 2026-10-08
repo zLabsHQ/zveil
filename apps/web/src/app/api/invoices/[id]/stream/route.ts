@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { invoices } from "@zveil/db";
 import { eq } from "drizzle-orm";
 
-export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 

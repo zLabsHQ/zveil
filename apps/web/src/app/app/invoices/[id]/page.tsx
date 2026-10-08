@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
@@ -5,7 +6,8 @@ import { invoices, payments, disclosures } from "@zveil/db";
 import { desc, eq } from "drizzle-orm";
 import { Amount } from "@/components/money/amount";
 import { StatusBadge, type InvoiceStatus } from "@/components/status/status-badge";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Stat } from "@/components/ui/stat";
 import { AddressField, CopyButton } from "@/components/zcash/address-field";
 import { InvoiceActions, InvoiceLinkRow } from "@/components/invoice/invoice-actions";
 import { Banner } from "@/components/feedback/empty-state";
@@ -13,7 +15,6 @@ import { truncateAddress } from "@/lib/utils";
 import { zatsToZec } from "@zveil/zip321";
 import { zecUsd, fiatForZats } from "@/lib/pricing";
 
-export const dynamic = "force-dynamic";
 /* eslint-disable react-hooks/purity -- server component; render-time clocks are fine here */
 
 function badge(s: string): InvoiceStatus {
@@ -21,6 +22,7 @@ function badge(s: string): InvoiceStatus {
 }
 
 export default async function InvoiceDetail({ params }: { params: Promise<{ id: string }> }) {
+  await connection();
   const { id } = await params;
   const inv = db().select().from(invoices).where(eq(invoices.id, id)).get();
   if (!inv) notFound();
@@ -54,26 +56,19 @@ export default async function InvoiceDetail({ params }: { params: Promise<{ id: 
       <InvoiceActions invoiceId={inv.id} status={inv.status} slug={inv.slug} />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="p-4">
-          <div className="text-[11px] font-medium uppercase tracking-[0.05em] text-ink-muted">Total due</div>
-          <div className="mt-2">
-            <Amount zats={inv.amountZats} fiat={rate ? fiatForZats(inv.amountZats, rate) : null} size="md" />
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-[11px] font-medium uppercase tracking-[0.05em] text-ink-muted">Received</div>
-          <div className="mt-2">
-            <Amount zats={paid} size="md" />
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-[11px] font-medium uppercase tracking-[0.05em] text-ink-muted">Due date</div>
-          <div className="mt-2 text-[22px] font-semibold leading-7 text-ink-strong">
+        <Stat label="Total due">
+          <Amount zats={inv.amountZats} fiat={rate ? fiatForZats(inv.amountZats, rate) : null} size="md" />
+        </Stat>
+        <Stat label="Received">
+          <Amount zats={paid} size="md" />
+        </Stat>
+        <Stat label="Due date">
+          <div className="text-[22px] font-semibold leading-7 text-ink-strong">
             {inv.dueDate
               ? new Date(inv.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
               : "—"}
           </div>
-        </Card>
+        </Stat>
       </div>
 
       {inv.slug && <InvoiceLinkRow slug={inv.slug} />}
@@ -81,8 +76,11 @@ export default async function InvoiceDetail({ params }: { params: Promise<{ id: 
         <AddressField label="Payment address" value={inv.address} className="font-mono" />
       )}
 
-      <Card>
-        <CardHeader title="Payments" hint={`${pays.length} detected`} />
+      <Card className="gap-0 py-0">
+        <CardHeader className="border-b border-border py-3.5">
+          <CardTitle className="text-sm font-semibold">Payments</CardTitle>
+          <CardDescription>{pays.length} detected</CardDescription>
+        </CardHeader>
         {pays.length === 0 ? (
           <div className="px-5 py-8 text-sm text-ink-muted">
             No payments yet. When a client pays, it appears here within seconds of broadcast.
@@ -115,8 +113,11 @@ export default async function InvoiceDetail({ params }: { params: Promise<{ id: 
       </Card>
 
       {links.filter((l) => !l.revokedAt && l.expiresAt > Date.now()).length > 0 && (
-        <Card>
-          <CardHeader title="Private share links" hint="Invoice-scoped disclosure" />
+        <Card className="gap-0 py-0">
+          <CardHeader className="border-b border-border py-3.5">
+            <CardTitle className="text-sm font-semibold">Private share links</CardTitle>
+            <CardDescription>Invoice-scoped disclosure</CardDescription>
+          </CardHeader>
           <div className="divide-y divide-border">
             {links
               .filter((l) => !l.revokedAt && l.expiresAt > Date.now())
@@ -134,3 +135,6 @@ export default async function InvoiceDetail({ params }: { params: Promise<{ id: 
     </div>
   );
 }
+
+// Data comes from SQLite/scanner at request time — never prerender.
+export const instant = false;

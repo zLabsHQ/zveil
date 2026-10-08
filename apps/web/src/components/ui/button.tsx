@@ -1,44 +1,61 @@
-import { cn } from "@/lib/utils";
-import { forwardRef, type ButtonHTMLAttributes } from "react";
+import { Button as ButtonPrimitive } from "@base-ui/react/button"
+import { cva, type VariantProps } from "class-variance-authority"
+import { cn } from "cn"
 
-type Variant = "primary" | "secondary" | "ghost" | "brand" | "danger";
-type Size = "sm" | "md" | "lg" | "xl";
+const buttonVariants = cva(
+  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none cursor-pointer focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        outline:
+          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+        ghost:
+          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+        destructive:
+          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20",
+        link: "text-primary underline-offset-4 hover:underline",
+        // Zveil additions (same styles, product vocabulary)
+        primary: "bg-ink-strong text-white shadow-xs hover:bg-[#292524]",
+        brand: "bg-brand-600 text-white shadow-xs hover:bg-brand-700",
+        danger: "bg-destructive/10 text-danger-fg hover:bg-destructive/20",
+      },
+      size: {
+        default:
+          "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] [&_svg:not([class*='size-'])]:size-3.5",
+        md: "h-9 gap-1.5 px-3.5",
+        lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        xl: "h-[52px] gap-2 rounded-[10px] px-6 text-[15px]",
+        icon: "size-8",
+        "icon-xs": "size-6 rounded-[min(var(--radius-md),10px)] [&_svg:not([class*='size-'])]:size-3",
+        "icon-sm": "size-7 rounded-[min(var(--radius-md),12px)]",
+        "icon-lg": "size-9",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+)
 
-const variants: Record<Variant, string> = {
-  primary:
-    "bg-ink-strong text-white shadow-xs hover:bg-[#292524] active:scale-[0.98]",
-  secondary:
-    "bg-surface border border-border-strong text-ink shadow-xs hover:bg-surface-hover active:scale-[0.98]",
-  ghost: "text-ink-soft hover:bg-surface-hover hover:text-ink",
-  brand: "bg-brand-600 text-white shadow-xs hover:bg-brand-700 active:scale-[0.98]",
-  danger: "text-danger-fg hover:bg-danger-bg",
-};
-
-const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-[13px] gap-1.5 rounded-md",
-  md: "h-9 px-3.5 text-sm gap-2 rounded-md",
-  lg: "h-11 px-5 text-sm gap-2 rounded-md",
-  xl: "h-[52px] px-6 text-[15px] gap-2 rounded-md",
-};
-
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: Variant;
-  size?: Size;
-}
-
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "primary", size = "md", type = "button", ...props }, ref) => (
-    <button
-      ref={ref}
-      type={type}
-      className={cn(
-        "inline-flex items-center justify-center font-medium transition-all duration-150 ease-out select-none cursor-pointer disabled:pointer-events-none disabled:opacity-50",
-        variants[variant],
-        sizes[size],
-        className,
-      )}
+function Button({
+  className,
+  variant = "default",
+  size = "default",
+  ...props
+}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  return (
+    <ButtonPrimitive
+      data-slot="button"
+      className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
-  ),
-);
-Button.displayName = "Button";
+  )
+}
+
+export { Button, buttonVariants }

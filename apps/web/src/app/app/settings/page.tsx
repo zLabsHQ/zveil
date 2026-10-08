@@ -1,13 +1,14 @@
+import { connection } from "next/server";
 import { viewingKey, workspace } from "@/lib/db";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Banner } from "@/components/feedback/empty-state";
 import { ViewingKeyForm, BusinessForm } from "@/components/settings/forms";
 import { Fingerprint } from "lucide-react";
 
 export const metadata = { title: "Settings" };
-export const dynamic = "force-dynamic";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  await connection();
   const ws = workspace();
   const vk = viewingKey();
 
@@ -17,8 +18,11 @@ export default function SettingsPage() {
         <h1 className="text-xl font-semibold tracking-[-0.02em] text-ink-strong">Settings</h1>
       </div>
 
-      <Card>
-        <CardHeader title="Payment detection" hint="Viewing-key only — Zveil can never spend" />
+      <Card className="gap-0 py-0">
+        <CardHeader className="border-b border-border py-3.5">
+          <CardTitle className="text-sm font-semibold">Payment detection</CardTitle>
+          <CardDescription>Viewing-key only — Zveil can never spend</CardDescription>
+        </CardHeader>
         <div className="px-5 py-4">
           {vk ? (
             <Banner tone="ok" title="Viewing key connected">
@@ -38,8 +42,10 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      <Card>
-        <CardHeader title="Business" />
+      <Card className="gap-0 py-0">
+        <CardHeader className="border-b border-border py-3.5">
+          <CardTitle className="text-sm font-semibold">Business</CardTitle>
+        </CardHeader>
         <div className="px-5 py-4">
           <BusinessForm initialName={ws.businessName} />
         </div>
@@ -47,3 +53,6 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+// Data comes from SQLite/scanner at request time — never prerender.
+export const instant = false;

@@ -4,7 +4,6 @@ import { zecUsd } from "@/lib/pricing";
 import Link from "next/link";
 
 export const metadata = { title: "New invoice" };
-export const dynamic = "force-dynamic";
 
 export default async function NewInvoicePage() {
   const ws = workspace();
@@ -21,3 +20,6 @@ export default async function NewInvoicePage() {
     </div>
   );
 }
+
+// Data comes from SQLite/scanner at request time — never prerender.
+export const instant = false;

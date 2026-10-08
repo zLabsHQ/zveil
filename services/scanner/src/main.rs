@@ -258,22 +258,13 @@ async fn allocate_address(
         Json(serde_json::json!({ "error": "account not found" })),
     ))?;
     acct.next_diversifier = acct.next_diversifier.max(b.diversifier_index + 1);
-    #[cfg(feature = "chain")]
-    {
-        let address = chain::derive_address(&acct.ufvk, b.diversifier_index)
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))))?;
-        return Ok(Json(AllocResp {
-            address,
-            diversifier_index: b.diversifier_index,
-        }));
-    }
-    #[cfg(not(feature = "chain"))]
-    {
-        Ok(Json(AllocResp {
-            address: demo_address(b.diversifier_index),
-            diversifier_index: b.diversifier_index,
-        }))
-    }
+    // Chain mode (planned): derive a diversified shielded UA from the UFVK via
+    // zcash_keys (see Cargo.toml note + src/chain_impl.rs). Demo mode returns a
+    // valid-shape regtest UA.
+    Ok(Json(AllocResp {
+        address: demo_address(b.diversifier_index),
+        diversifier_index: b.diversifier_index,
+    }))
 }
 
 async fn demo_pay(
@@ -321,10 +312,11 @@ async fn demo_pay(
         for c in 1..=required {
             tokio::time::sleep(Duration::from_millis(800)).await;
             {
-                let mut h = state.latest_height.lock().unwrap();
-                *h += 1;
-                let mined = *h;
-                drop(h);
+                let mined = {
+                    let mut h = state.latest_height.lock().unwrap();
+                    *h += 1;
+                    *h
+                };
                 post_event(
                     &state,
                     &webhook,
@@ -349,22 +341,6 @@ async fn demo_pay(
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
-// ---------------------------------------------------------------- chain (real mode)
-
-#[cfg(feature = "chain")]
-mod chain {
-    // Real implementation lives in src/chain_impl.rs — kept out of the default
-    // build so `cargo run` always produces the demo server. Enable with:
-    //   cargo run --features chain
-    // and set LIGHTWALLETD_URL + WALLET_DB_DIR + NETWORK.
-    pub fn derive_address(_ufvk: &str, _diversifier: u64) -> Result<String, String> {
-        Err("chain mode: derive_address not wired in this build — see src/chain_impl.rs".into())
-    }
-}
-
-#[cfg(not(feature = "chain"))]
-mod chain {}
-
 // ---------------------------------------------------------------- main
 
 #[tokio::main]
@@ -381,19 +357,20 @@ async fn main() {
         accounts: Arc::new(Mutex::new(HashMap::new())),
         http: reqwest::Client::new(),
         latest_height: Arc::new(Mutex::new(3_512_000)),
-        mode: if cfg!(feature = "chain") { "chain".into() } else { "demo".into() },
+        mode: "demo".into(),
     };
 
+    let mode = state.mode.clone();
     let app = Router::new()
         .route("/v1/status", get(status))
         .route("/v1/accounts", post(import_account))
-        .route("/v1/accounts/:acct/addresses", post(allocate_address))
+        .route("/v1/accounts/{acct}/addresses", post(allocate_address))
         .route("/v1/demo/pay", post(demo_pay))
         .with_state(state);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".into());
     let addr = format!("0.0.0.0:{}", port);
-    tracing::info!("zveil-scanner listening on {} (mode={})", addr, state.mode);
+    tracing::info!("zveil-scanner listening on {} (mode={})", addr, mode);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }

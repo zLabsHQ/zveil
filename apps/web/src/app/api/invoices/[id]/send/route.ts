@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, viewingKey, workspace } from "@/lib/db";
 import { invoices, counters } from "@zveil/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { buildPaymentUri } from "@zveil/zip321";
 import { scanner } from "@/lib/scanner";
 import { slug8 } from "@/lib/id";
@@ -13,9 +13,8 @@ function nextCounter(key: string): number {
   db()
     .insert(counters)
     .values({ key, value: 1 })
-    .onConflictDoUpdate({ target: counters.key, set: { value: counters.value } })
+    .onConflictDoUpdate({ target: counters.key, set: { value: sql`${counters.value} + 1` } })
     .run();
-  // sqlite lacks RETURNING in this path reliably — read after bump:
   return db().select().from(counters).where(eq(counters.key, key)).get()!.value;
 }
 

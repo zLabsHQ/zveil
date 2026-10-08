@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { scanner } from "@/lib/scanner";
 import { zecUsd } from "@/lib/pricing";
 
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   const [s, rate] = await Promise.all([scanner.status(), zecUsd()]);

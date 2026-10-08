@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { invoices, payments, workspaces } from "@zveil/db";
@@ -10,10 +11,10 @@ import { truncateAddress } from "@/lib/utils";
 import { zatsToZec } from "@zveil/zip321";
 import { ShieldCheck } from "lucide-react";
 
-export const dynamic = "force-dynamic";
 /* eslint-disable react-hooks/purity -- server component; render-time clocks are fine here */
 
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
+  await connection();
   const { id } = await params;
   const inv = db().select().from(invoices).where(eq(invoices.id, id)).get();
   if (!inv || (inv.status !== "paid" && inv.status !== "overpaid")) notFound();
@@ -103,3 +104,6 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
     </div>
   );
 }
+
+// Data comes from SQLite/scanner at request time — never prerender.
+export const instant = false;

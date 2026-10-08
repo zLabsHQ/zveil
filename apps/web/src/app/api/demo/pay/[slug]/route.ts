@@ -7,7 +7,6 @@ import { eq } from "drizzle-orm";
 import { reconcile } from "@/lib/reconcile";
 import { emitInvoice } from "@/lib/bus";
 
-export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ slug: string }> };
 

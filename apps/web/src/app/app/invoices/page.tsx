@@ -1,13 +1,14 @@
+import { connection } from "next/server";
 import { db, workspace } from "@/lib/db";
 import { invoices, payments } from "@zveil/db";
 import { desc, eq, isNull } from "drizzle-orm";
 import { InvoiceTable } from "@/components/invoice/invoice-table";
 
 export const metadata = { title: "Invoices" };
-export const dynamic = "force-dynamic";
 /* eslint-disable react-hooks/purity -- server component; render-time clocks are fine here */
 
-export default function InvoicesPage() {
+export default async function InvoicesPage() {
+  await connection();
   const ws = workspace();
   const invs = db()
     .select()
@@ -44,3 +45,6 @@ export default function InvoicesPage() {
     </div>
   );
 }
+
+// Data comes from SQLite/scanner at request time — never prerender.
+export const instant = false;

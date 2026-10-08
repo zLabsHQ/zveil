@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { invoices, payments, workspaces } from "@zveil/db";
@@ -6,9 +7,9 @@ import { PayView } from "@/components/pay/pay-view";
 import { Banner } from "@/components/feedback/empty-state";
 import { zecUsd, fiatForZats } from "@/lib/pricing";
 
-export const dynamic = "force-dynamic";
 
 export default async function PayPage({ params }: { params: Promise<{ slug: string }> }) {
+  await connection();
   const { slug } = await params;
   const inv = db().select().from(invoices).where(eq(invoices.slug, slug)).get();
   if (!inv || !inv.address || !inv.zip321Uri) notFound();
@@ -54,3 +55,6 @@ export default async function PayPage({ params }: { params: Promise<{ slug: stri
     </>
   );
 }
+
+// Data comes from SQLite/scanner at request time — never prerender.
+export const instant = false;
