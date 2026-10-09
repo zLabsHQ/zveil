@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ZveilWordmark } from "@/components/ui/logo";
-import { FileText, LayoutDashboard, Settings, Plus } from "lucide-react";
+import { setVeiled, useVeiled } from "@/components/money/amount";
+import { Eye, EyeOff, FileText, LayoutDashboard, Settings, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const nav = [
@@ -13,6 +14,22 @@ const nav = [
   { href: "/app/invoices", label: "Invoices", icon: FileText, exact: false },
   { href: "/app/settings", label: "Settings", icon: Settings, exact: false },
 ];
+
+function VeilToggle() {
+  const on = useVeiled();
+  const toggle = () => setVeiled(!on);
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      title={on ? "Reveal amounts" : "Hide amounts"}
+      aria-label={on ? "Reveal amounts" : "Hide amounts"}
+      className="flex size-[26px] items-center justify-center rounded-md text-ink-muted transition hover:bg-surface-sunken hover:text-ink-soft"
+    >
+      {on ? <EyeOff className="size-3.5" strokeWidth={1.8} /> : <Eye className="size-3.5" strokeWidth={1.8} />}
+    </button>
+  );
+}
 
 function NetworkPill() {
   const [s, setS] = useState<{ network: string; latestHeight: number | null; demoMode: boolean } | null>(null);
@@ -81,6 +98,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="max-lg:hidden" />
           <div className="flex items-center gap-3">
+            <VeilToggle />
             <NetworkPill />
             <Link href="/app/invoices/new">
               <Button size="sm" className="gap-1.5">

@@ -38,7 +38,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
     ["Received", `${zatsToZec(total)} ZEC`],
     ...(inv.amountFiatCents ? [["Fiat equivalent", `$${(inv.amountFiatCents / 100).toFixed(2)} USD`]] : []),
     ["Recipient", ws.businessName],
-    ["Network", "Zcash (shielded)"],
+    ["Network", "Zcash · shielded (Ironwood pool)"],
   ] as const;
 
   return (
