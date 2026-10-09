@@ -1,5 +1,5 @@
 /**
- * @zveil/zip321 — ZIP-321 Zcash payment request URIs.
+ * @z-labs/zip321 — ZIP-321 Zcash payment request URIs.
  *
  * Spec: https://zips.z.cash/zip-0321
  * - Scheme: zcash:<address>?<params>

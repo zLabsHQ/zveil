@@ -18,14 +18,15 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 rand = "0.8"
 
-# Real chain mode (cargo build --features chain). Requires librustzcash crates
-# pinned to versions matching the deployed lightwalletd/Zaino. See src/chain.rs.
-zcash_keys = { version = "0.10", optional = true }
-zcash_address = { version = "0.9", optional = true }
-zcash_protocol = { version = "0.6", optional = true }
-zcash_client_backend = { version = "0.24", features = ["lightwalletd-tonic"], optional = true }
-zcash_client_sqlite = { version = "0.24", optional = true }
-
-[features]
-default = []
-chain = ["zcash_keys", "zcash_address", "zcash_protocol", "zcash_client_backend", "zcash_client_sqlite"]
+# Real chain mode (src/chain.rs): librustzcash pre-release set, Ironwood-aware
+# (NU6.3). zcash_address 0.14 avoids the yanked core2 0.3 dependency that
+# blocked the 0.9 line. zcash_client_sqlite is present for the future WalletDb
+# path (spend tracking / positions); detection today is WalletDb-free.
+zcash_client_backend = { version = "0.25.0-pre.1", features = ["lightwalletd-tonic"] }
+zcash_client_sqlite = "0.23.0-pre.1"
+zcash_keys = { version = "0.17.0-pre.1", features = ["unstable"] }
+zcash_address = "0.14.0-pre.1"
+zcash_protocol = { version = "0.11.0-pre.0", features = ["local-consensus"] }
+orchard = "0.16.0"
+zip32 = "0.3.0"
+tonic = { version = "0.14", features = ["transport"] }

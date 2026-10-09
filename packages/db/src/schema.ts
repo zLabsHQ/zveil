@@ -1,25 +1,25 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { pgTable, text, integer, bigint, uniqueIndex } from "drizzle-orm/pg-core";
 
 // Single-workspace model for the hackathon demo (multi-tenant later).
-export const workspaces = sqliteTable("workspaces", {
+export const workspaces = pgTable("workspaces", {
   id: text("id").primaryKey(),
   businessName: text("business_name").notNull(),
   email: text("email"),
   defaultConfirmations: integer("default_confirmations").notNull().default(3),
-  createdAt: integer("created_at").notNull(),
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
 });
 
-export const viewingKeys = sqliteTable("viewing_keys", {
+export const viewingKeys = pgTable("viewing_keys", {
   id: text("id").primaryKey(),
   workspaceId: text("workspace_id").notNull(),
   fingerprint: text("fingerprint").notNull().unique(),
   network: text("network").notNull(), // "regtest" | "testnet" | "main"
   scannerAccountId: text("scanner_account_id").notNull().unique(),
   keyRef: text("key_ref"), // env ref / sealed key id — never the raw UFVK
-  createdAt: integer("created_at").notNull(),
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
 });
 
-export const invoices = sqliteTable(
+export const invoices = pgTable(
   "invoices",
   {
     id: text("id").primaryKey(),
@@ -32,58 +32,58 @@ export const invoices = sqliteTable(
     clientEmail: text("client_email"),
     description: text("description").notNull().default(""),
     itemsJson: text("items_json").notNull().default("[]"),
-    amountZats: integer("amount_zats", { mode: "number" }).notNull(),
+    amountZats: bigint("amount_zats", { mode: "number" }).notNull(),
     fiat: text("fiat"), // "USD" | null
-    amountFiatCents: integer("amount_fiat_cents"),
-    rateFiatPerZec: integer("rate_fiat_per_zec", { mode: "number" }), // snapshot, cents
-    dueDate: integer("due_date"),
+    amountFiatCents: bigint("amount_fiat_cents", { mode: "number" }),
+    rateFiatPerZec: bigint("rate_fiat_per_zec", { mode: "number" }), // snapshot, cents
+    dueDate: bigint("due_date", { mode: "number" }),
     memoSeed: text("memo_seed"), // ZP-XXXX fallback token
     diversifierIndex: integer("diversifier_index"),
     address: text("address"),
     zip321Uri: text("zip321_uri"),
     viewingKeyId: text("viewing_key_id"),
     confirmationsRequired: integer("confirmations_required").notNull().default(3),
-    firstSeenAt: integer("first_seen_at"),
-    paidAt: integer("paid_at"),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
+    firstSeenAt: bigint("first_seen_at", { mode: "number" }),
+    paidAt: bigint("paid_at", { mode: "number" }),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },
   (t) => [uniqueIndex("invoices_slug_idx").on(t.slug)],
 );
 
-export const payments = sqliteTable("payments", {
+export const payments = pgTable("payments", {
   id: text("id").primaryKey(),
   invoiceId: text("invoice_id").notNull(),
   txid: text("txid").notNull(),
   pool: text("pool").notNull(), // "ironwood" | "orchard" | "sapling" | "transparent"
   outputIndex: integer("output_index").notNull(),
-  zats: integer("zats", { mode: "number" }).notNull(),
+  zats: bigint("zats", { mode: "number" }).notNull(),
   memoPreview: text("memo_preview"),
   minedHeight: integer("mined_height"),
   confirmations: integer("confirmations").notNull().default(0),
-  seenAt: integer("seen_at").notNull(),
-  reorgedAt: integer("reorged_at"),
+  seenAt: bigint("seen_at", { mode: "number" }).notNull(),
+  reorgedAt: bigint("reorged_at", { mode: "number" }),
 });
 
-export const scannerEvents = sqliteTable("scanner_events", {
+export const scannerEvents = pgTable("scanner_events", {
   eventId: text("event_id").primaryKey(), // dedup
   invoiceId: text("invoice_id"),
   type: text("type").notNull(),
-  receivedAt: integer("received_at").notNull(),
+  receivedAt: bigint("received_at", { mode: "number" }).notNull(),
   payloadJson: text("payload_json").notNull().default("{}"),
 });
 
-export const disclosures = sqliteTable("disclosures", {
+export const disclosures = pgTable("disclosures", {
   id: text("id").primaryKey(),
   invoiceId: text("invoice_id").notNull(),
   token: text("token").notNull().unique(),
   label: text("label").notNull().default("Viewer"),
-  expiresAt: integer("expires_at").notNull(),
-  revokedAt: integer("revoked_at"),
-  createdAt: integer("created_at").notNull(),
+  expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
+  revokedAt: bigint("revoked_at", { mode: "number" }),
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
 });
 
-export const counters = sqliteTable("counters", {
+export const counters = pgTable("counters", {
   key: text("key").primaryKey(),
   value: integer("value").notNull().default(0),
 });

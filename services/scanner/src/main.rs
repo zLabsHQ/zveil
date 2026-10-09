@@ -6,9 +6,10 @@
 //!   3. Emit signed webhook events: payment.detected → payment.mined → payment.reorged.
 //!
 //! Modes:
-//!   - `chain`  (cargo build --features chain): real Ironwood-aware scanning against
-//!              lightwalletd/Zaino via zcash_client_backend. See src/chain.rs — the
-//!              sync loop is implemented; crate-version API drift may need attention.
+//!   - `chain`  (SCANNER_MODE=chain): real view-only scanning against
+//!              lightwalletd/Zaino via zcash_client_backend — UFVK decode, real
+//!              diversified addresses, trial-decrypt of compact blocks
+//!              (Orchard + Ironwood). See src/chain.rs. Needs LIGHTWALLETD_URL.
 //!   - `demo`   (default): validates UFVK shape, allocates deterministic-looking
 //!              regtest addresses, and /v1/demo/pay fabricates the full detected→
 //!              mined→confirmed event lifecycle through the same signed webhook path.
@@ -16,6 +17,8 @@
 //!
 //! Env:
 //!   PORT                    (default 8080)
+//!   SCANNER_MODE            "demo" (default) | "chain"
+//!   LIGHTWALLETD_URL        lightwalletd/Zaino gRPC endpoint (default http://localhost:9067)
 //!   SCANNER_TOKEN           Bearer token for web↔scanner auth (default "dev-token")
 //!   SCANNER_WEBHOOK_SECRET  HMAC-SHA256 key for event signatures (default "dev-secret")
 //!   CONFIRMATIONS_REQUIRED  (default 3)
@@ -38,14 +41,21 @@ use std::{
 };
 use uuid::Uuid;
 
+mod chain;
+use chain::Chain;
+
 type HmacSha256 = Hmac<Sha256>;
 
 // ---------------------------------------------------------------- state
 
 struct Account {
+    #[allow(dead_code)]
     id: String,
+    #[allow(dead_code)]
     fingerprint: String,
+    #[allow(dead_code)]
     network: String,
+    #[allow(dead_code)]
     ufvk: String,
     webhook_url: String,
     next_diversifier: u64,
@@ -60,6 +70,7 @@ struct AppState {
     http: reqwest::Client,
     latest_height: Arc<Mutex<u64>>,
     mode: String,
+    chain: Option<Arc<Chain>>,
 }
 
 // ---------------------------------------------------------------- types
@@ -99,6 +110,7 @@ struct DemoPayBody {
     address: String,
     zats: u64,
     #[serde(default)]
+    #[allow(dead_code)]
     partial: bool,
 }
 
@@ -182,7 +194,10 @@ fn demo_address(diversifier: u64) -> String {
 
 // ---------------------------------------------------------------- auth
 
-fn auth<'a>(state: &AppState, headers: &'a HeaderMap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+fn auth<'a>(
+    state: &AppState,
+    headers: &'a HeaderMap,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     let ok = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
@@ -200,7 +215,10 @@ fn auth<'a>(state: &AppState, headers: &'a HeaderMap) -> Result<(), (StatusCode,
 
 // ---------------------------------------------------------------- handlers
 
-async fn status(State(s): State<AppState>, h: HeaderMap) -> Result<Json<StatusResp>, (StatusCode, Json<serde_json::Value>)> {
+async fn status(
+    State(s): State<AppState>,
+    h: HeaderMap,
+) -> Result<Json<StatusResp>, (StatusCode, Json<serde_json::Value>)> {
     auth(&s, &h)?;
     let height = *s.latest_height.lock().unwrap();
     Ok(Json(StatusResp {
@@ -225,8 +243,15 @@ async fn import_account(
             Json(serde_json::json!({ "error": "invalid UFVK" })),
         ));
     }
-    // In chain mode we'd decode via zcash_keys; demo accepts the shape.
     let id = format!("acct_{}", Uuid::new_v4().simple());
+    if let Some(chain) = &s.chain {
+        chain.import(&id, &b.ufvk, &b.webhook_url).map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": e })),
+            )
+        })?;
+    }
     let fp = fingerprint_of(&b.ufvk);
     let acct = Account {
         id: id.clone(),
@@ -258,11 +283,18 @@ async fn allocate_address(
         Json(serde_json::json!({ "error": "account not found" })),
     ))?;
     acct.next_diversifier = acct.next_diversifier.max(b.diversifier_index + 1);
-    // Chain mode (planned): derive a diversified shielded UA from the UFVK via
-    // zcash_keys (see Cargo.toml note + src/chain_impl.rs). Demo mode returns a
-    // valid-shape regtest UA.
+    let address = if let Some(chain) = &s.chain {
+        chain.allocate(&acct_id, b.diversifier_index).map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": e })),
+            )
+        })?
+    } else {
+        demo_address(b.diversifier_index)
+    };
     Ok(Json(AllocResp {
-        address: demo_address(b.diversifier_index),
+        address,
         diversifier_index: b.diversifier_index,
     }))
 }
@@ -276,13 +308,10 @@ async fn demo_pay(
     // find the webhook for this address's account (demo: use first account's webhook)
     let webhook = {
         let map = s.accounts.lock().unwrap();
-        map.values()
-            .next()
-            .map(|a| a.webhook_url.clone())
-            .ok_or((
-                StatusCode::PRECONDITION_FAILED,
-                Json(serde_json::json!({ "error": "import a viewing key first" })),
-            ))?
+        map.values().next().map(|a| a.webhook_url.clone()).ok_or((
+            StatusCode::PRECONDITION_FAILED,
+            Json(serde_json::json!({ "error": "import a viewing key first" })),
+        ))?
     };
     let zats = b.zats;
     let required = s.confirmations_required;
@@ -347,9 +376,20 @@ async fn demo_pay(
 async fn main() {
     tracing_subscriber::fmt::init();
 
+    // SCANNER_MODE=chain requires LIGHTWALLETD_URL (e.g. http://localhost:9067).
+    let mode = std::env::var("SCANNER_MODE").unwrap_or_else(|_| "demo".into());
+    let chain = if mode == "chain" {
+        let endpoint =
+            std::env::var("LIGHTWALLETD_URL").unwrap_or_else(|_| "http://localhost:9067".into());
+        Some(Arc::new(Chain::new(endpoint)))
+    } else {
+        None
+    };
+
     let state = AppState {
         token: std::env::var("SCANNER_TOKEN").unwrap_or_else(|_| "dev-token".into()),
-        webhook_secret: std::env::var("SCANNER_WEBHOOK_SECRET").unwrap_or_else(|_| "dev-secret".into()),
+        webhook_secret: std::env::var("SCANNER_WEBHOOK_SECRET")
+            .unwrap_or_else(|_| "dev-secret".into()),
         confirmations_required: std::env::var("CONFIRMATIONS_REQUIRED")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -357,10 +397,15 @@ async fn main() {
         accounts: Arc::new(Mutex::new(HashMap::new())),
         http: reqwest::Client::new(),
         latest_height: Arc::new(Mutex::new(3_512_000)),
-        mode: "demo".into(),
+        mode: mode.clone(),
+        chain: chain.clone(),
     };
 
-    let mode = state.mode.clone();
+    // Real chain polling loop — only when running against lightwalletd/Zaino.
+    if let Some(c) = chain {
+        let st = state.clone();
+        tokio::spawn(async move { c.run(st).await });
+    }
     let app = Router::new()
         .route("/v1/status", get(status))
         .route("/v1/accounts", post(import_account))
