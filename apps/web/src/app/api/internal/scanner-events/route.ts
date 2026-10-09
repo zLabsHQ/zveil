@@ -44,9 +44,13 @@ export async function POST(req: Request) {
   const now = Date.now();
 
   // dedup by eventId
-  const seen = db().select().from(scannerEvents).where(eq(scannerEvents.eventId, ev.eventId)).get();
+  const [seen] = await db()
+    .select()
+    .from(scannerEvents)
+    .where(eq(scannerEvents.eventId, ev.eventId))
+    .limit(1);
   if (seen) return NextResponse.json({ ok: true, deduped: true });
-  db()
+  await db()
     .insert(scannerEvents)
     .values({
       eventId: ev.eventId,
@@ -54,18 +58,22 @@ export async function POST(req: Request) {
       type: ev.type,
       receivedAt: now,
       payloadJson: raw,
-    })
-    .run();
+    });
 
   // locate invoice by id or address
   let invoiceId = ev.invoiceId;
   if (!invoiceId && ev.address) {
-    invoiceId = db().select({ id: invoices.id }).from(invoices).where(eq(invoices.address, ev.address)).get()?.id;
+    const [found] = await db()
+      .select({ id: invoices.id })
+      .from(invoices)
+      .where(eq(invoices.address, ev.address))
+      .limit(1);
+    invoiceId = found?.id;
   }
   if (!invoiceId) return NextResponse.json({ ok: true, unmatched: true });
 
   if (ev.type === "payment.detected" || ev.type === "payment.mined") {
-    db()
+    await db()
       .insert(payments)
       .values({
         id: `${ev.txid}:${ev.pool}:${ev.outputIndex}`,
@@ -85,22 +93,20 @@ export async function POST(req: Request) {
           minedHeight: sql`coalesce(excluded.mined_height, ${payments.minedHeight})`,
           confirmations: sql`coalesce(excluded.confirmations, ${payments.confirmations})`,
         },
-      })
-      .run();
+      });
     emitInvoice({
       invoiceId,
       type: "payment",
       payment: { txid: ev.txid, zats: ev.zats, pool: ev.pool, confirmations: ev.confirmations ?? 0 },
     });
   } else if (ev.type === "payment.reorged") {
-    db()
+    await db()
       .update(payments)
       .set({ reorgedAt: now })
-      .where(eq(payments.id, `${ev.txid}:${ev.pool}:${ev.outputIndex}`))
-      .run();
+      .where(eq(payments.id, `${ev.txid}:${ev.pool}:${ev.outputIndex}`));
     emitInvoice({ invoiceId, type: "reorg" });
   }
 
-  reconcile(invoiceId);
+  await reconcile(invoiceId);
   return NextResponse.json({ ok: true });
 }

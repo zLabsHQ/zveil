@@ -14,7 +14,7 @@ const Body = z.object({
 
 export async function POST(req: Request, ctx: Ctx) {
   const { id: invoiceId } = await ctx.params;
-  const inv = db().select().from(invoices).where(eq(invoices.id, invoiceId)).get();
+  const [inv] = await db().select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
   if (!inv) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (inv.status === "draft" || inv.status === "void")
     return NextResponse.json({ error: "Only sent invoices can be shared" }, { status: 409 });
@@ -32,6 +32,6 @@ export async function POST(req: Request, ctx: Ctx) {
     expiresAt: now + parsed.data.days * 86_400_000,
     createdAt: now,
   };
-  db().insert(disclosures).values(d).run();
+  await db().insert(disclosures).values(d);
   return NextResponse.json({ disclosure: d, url: `/d/${token}` });
 }

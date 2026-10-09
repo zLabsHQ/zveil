@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
@@ -23,21 +23,21 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Demo mode disabled" }, { status: 404 });
   }
   const { slug } = await ctx.params;
-  const inv = db().select().from(invoices).where(eq(invoices.slug, slug)).get();
+  const [inv] = await db().select().from(invoices).where(eq(invoices.slug, slug)).limit(1);
   if (!inv) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (inv.status === "void" || inv.status === "draft")
     return NextResponse.json({ error: "Invoice not payable" }, { status: 409 });
 
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   const body = parsed.success ? parsed.data : { partial: false };
-  const paid = sumPaid(inv.id);
+  const paid = await sumPaid(inv.id);
   const remaining = Math.max(inv.amountZats - paid, 1);
   const zats = body.zats ?? (body.partial ? Math.floor(inv.amountZats * 0.4) : remaining);
 
   const txid = randomBytes(32).toString("hex");
   const paymentId = `${txid}:ironwood:0`;
   const now = Date.now();
-  db()
+  await db()
     .insert(payments)
     .values({
       id: paymentId,
@@ -49,28 +49,28 @@ export async function POST(req: Request, ctx: Ctx) {
       memoPreview: inv.memoSeed,
       confirmations: 0,
       seenAt: now,
-    })
-    .run();
+    });
   emitInvoice({ invoiceId: inv.id, slug, type: "payment", payment: { txid, zats, pool: "ironwood", confirmations: 0 } });
-  reconcile(inv.id);
+  await reconcile(inv.id);
 
-  // simulate chain: mined at +900ms, then confirmations 2,3 at +600ms steps
+  // simulate chain: mined at +900ms, then confirmations at +650ms steps.
+  // after() keeps the work alive on serverless runtimes post-response.
   const steps = [1, 2, inv.confirmationsRequired];
-  steps.forEach((c, i) => {
-    setTimeout(() => {
-      db().update(payments)
+  after(async () => {
+    for (const [i, c] of steps.entries()) {
+      await new Promise((r) => setTimeout(r, i === 0 ? 900 : 650));
+      await db().update(payments)
         .set({ minedHeight: 3_512_000 + c, confirmations: c })
-        .where(eq(payments.id, paymentId))
-        .run();
+        .where(eq(payments.id, paymentId));
       emitInvoice({ invoiceId: inv.id, slug, type: "payment", payment: { txid, zats, pool: "ironwood", confirmations: c } });
-      reconcile(inv.id);
-    }, 900 + i * 650);
+      await reconcile(inv.id);
+    }
   });
 
   return NextResponse.json({ ok: true, txid, zats });
 }
 
-function sumPaid(invoiceId: string): number {
-  const rows = db().select({ zats: payments.zats }).from(payments).where(eq(payments.invoiceId, invoiceId)).all();
+async function sumPaid(invoiceId: string): Promise<number> {
+  const rows = await db().select({ zats: payments.zats }).from(payments).where(eq(payments.invoiceId, invoiceId));
   return rows.reduce((s, r) => s + r.zats, 0);
 }

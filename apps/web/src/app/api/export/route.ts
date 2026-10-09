@@ -1,7 +1,7 @@
 import { db, workspace } from "@/lib/db";
 import { invoices, payments } from "@zveil/db";
 import { eq } from "drizzle-orm";
-import { zatsToZec } from "@zveil/zip321";
+import { zatsToZec } from "@z-labs/zip321";
 
 function csvEscape(s: string | null | undefined): string {
   const v = s ?? "";
@@ -9,8 +9,8 @@ function csvEscape(s: string | null | undefined): string {
 }
 
 export async function GET() {
-  const invs = db().select().from(invoices).where(eq(invoices.workspaceId, workspace().id)).all();
-  const pays = db().select().from(payments).all();
+  const invs = await db().select().from(invoices).where(eq(invoices.workspaceId, (await workspace()).id));
+  const pays = await db().select().from(payments);
   const paysBy = new Map<string, typeof pays>();
   for (const p of pays) {
     if (p.reorgedAt) continue;

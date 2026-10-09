@@ -10,9 +10,9 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const bySlug = new URL(req.url).searchParams.get("by") === "slug";
-  const inv = bySlug
-    ? db().select().from(invoices).where(eq(invoices.slug, id)).get()
-    : db().select().from(invoices).where(eq(invoices.id, id)).get();
+  const [inv] = await (bySlug
+    ? db().select().from(invoices).where(eq(invoices.slug, id)).limit(1)
+    : db().select().from(invoices).where(eq(invoices.id, id)).limit(1));
   if (!inv) return new Response("not found", { status: 404 });
 
   const channel = bySlug ? `slug:${id}` : `invoice:${id}`;

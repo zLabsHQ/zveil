@@ -30,8 +30,8 @@ export async function POST(req: Request) {
     }
   }
 
-  const ws = workspace();
-  db()
+  const ws = await workspace();
+  await db()
     .insert(viewingKeys)
     .values({
       id: id(),
@@ -41,8 +41,7 @@ export async function POST(req: Request) {
       scannerAccountId: acct.accountId,
       keyRef: "env:UFVK_0", // sealed — raw UFVK never stored in app DB
       createdAt: Date.now(),
-    })
-    .run();
+    });
 
   return NextResponse.json({
     ok: true,

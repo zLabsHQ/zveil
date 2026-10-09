@@ -20,14 +20,13 @@ const Body = z.object({
 });
 
 export async function GET() {
-  const ws = workspace();
-  const rows = db()
+  const ws = await workspace();
+  const rows = await db()
     .select()
     .from(invoices)
     .where(eq(invoices.workspaceId, ws.id))
-    .orderBy(desc(invoices.createdAt))
-    .all();
-  const pays = db().select().from(payments).all();
+    .orderBy(desc(invoices.createdAt));
+  const pays = await db().select().from(payments);
   const paidByInvoice = new Map<string, number>();
   for (const p of pays) {
     if (p.reorgedAt) continue;
@@ -48,7 +47,7 @@ export async function POST(req: Request) {
   const now = Date.now();
   const inv = {
     id: id(),
-    workspaceId: workspace().id,
+    workspaceId: (await workspace()).id,
     status: "draft",
     clientName: b.clientName,
     clientEmail: b.clientEmail || null,
@@ -63,6 +62,6 @@ export async function POST(req: Request) {
     createdAt: now,
     updatedAt: now,
   };
-  db().insert(invoices).values(inv).run();
+  await db().insert(invoices).values(inv);
   return NextResponse.json({ invoice: inv });
 }

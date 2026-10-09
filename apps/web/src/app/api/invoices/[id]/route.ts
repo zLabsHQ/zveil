@@ -16,21 +16,20 @@ const Patch = z.object({
 
 export async function GET(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  const inv = db().select().from(invoices).where(eq(invoices.id, id)).get();
+  const [inv] = await db().select().from(invoices).where(eq(invoices.id, id)).limit(1);
   if (!inv) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const pays = db()
+  const pays = await db()
     .select()
     .from(payments)
     .where(eq(payments.invoiceId, id))
-    .orderBy(desc(payments.seenAt))
-    .all();
-  const links = db().select().from(disclosures).where(eq(disclosures.invoiceId, id)).all();
+    .orderBy(desc(payments.seenAt));
+  const links = await db().select().from(disclosures).where(eq(disclosures.invoiceId, id));
   return NextResponse.json({ invoice: inv, payments: pays, disclosures: links });
 }
 
 export async function PATCH(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  const inv = db().select().from(invoices).where(eq(invoices.id, id)).get();
+  const [inv] = await db().select().from(invoices).where(eq(invoices.id, id)).limit(1);
   if (!inv) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (inv.status !== "draft")
     return NextResponse.json({ error: "Only drafts can be edited" }, { status: 409 });
@@ -38,7 +37,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const parsed = Patch.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid patch" }, { status: 400 });
   const b = parsed.data;
-  db()
+  await db()
     .update(invoices)
     .set({
       ...(b.clientName !== undefined && { clientName: b.clientName }),
@@ -48,7 +47,6 @@ export async function PATCH(req: Request, ctx: Ctx) {
       ...(b.dueDate !== undefined && { dueDate: b.dueDate }),
       updatedAt: Date.now(),
     })
-    .where(eq(invoices.id, id))
-    .run();
+    .where(eq(invoices.id, id));
   return NextResponse.json({ ok: true });
 }
