@@ -7,8 +7,8 @@ type Ctx = { params: Promise<{ token: string }> };
 
 export async function DELETE(_req: Request, ctx: Ctx) {
   const { token } = await ctx.params;
-  const d = db().select().from(disclosures).where(eq(disclosures.token, token)).get();
+  const [d] = await db().select().from(disclosures).where(eq(disclosures.token, token)).limit(1);
   if (!d) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  db().update(disclosures).set({ revokedAt: Date.now() }).where(eq(disclosures.token, token)).run();
+  await db().update(disclosures).set({ revokedAt: Date.now() }).where(eq(disclosures.token, token));
   return NextResponse.json({ ok: true });
 }

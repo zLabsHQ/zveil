@@ -7,7 +7,7 @@ import { ZveilWordmark } from "@/components/ui/logo";
 import { Amount } from "@/components/money/amount";
 import { StatusBadge, type InvoiceStatus } from "@/components/status/status-badge";
 import { Banner } from "@/components/feedback/empty-state";
-import { zatsToZec } from "@zveil/zip321";
+import { zatsToZec } from "@z-labs/zip321";
 import { truncateAddress } from "@/lib/utils";
 import { Eye } from "lucide-react";
 
@@ -16,7 +16,7 @@ import { Eye } from "lucide-react";
 export default async function DisclosurePage({ params }: { params: Promise<{ token: string }> }) {
   await connection();
   const { token } = await params;
-  const d = db().select().from(disclosures).where(eq(disclosures.token, token)).get();
+  const [d] = await db().select().from(disclosures).where(eq(disclosures.token, token)).limit(1);
   if (!d || d.revokedAt || d.expiresAt < Date.now()) {
     return (
       <div className="veil-bg flex min-h-full flex-col items-center justify-center px-4">
@@ -28,10 +28,10 @@ export default async function DisclosurePage({ params }: { params: Promise<{ tok
       </div>
     );
   }
-  const inv = db().select().from(invoices).where(eq(invoices.id, d.invoiceId)).get();
+  const [inv] = await db().select().from(invoices).where(eq(invoices.id, d.invoiceId)).limit(1);
   if (!inv) notFound();
-  const pays = db().select().from(payments).where(and(eq(payments.invoiceId, inv.id), isNull(payments.reorgedAt))).all();
-  const ws = db().select().from(workspaces).where(eq(workspaces.id, inv.workspaceId)).get()!;
+  const pays = await db().select().from(payments).where(and(eq(payments.invoiceId, inv.id), isNull(payments.reorgedAt)));
+  const [ws] = await db().select().from(workspaces).where(eq(workspaces.id, inv.workspaceId)).limit(1);
   const total = pays.reduce((s, p) => s + p.zats, 0);
 
   return (
