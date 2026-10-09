@@ -1,27 +1,24 @@
 import { createDb, type Db, workspaces, viewingKeys } from "@zveil/db";
 import { eq } from "drizzle-orm";
-import { mkdirSync } from "node:fs";
-import path from "node:path";
-
-const DB_PATH = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "zveil.db");
 
 let _db: Db | null = null;
 
+// Postgres via Neon HTTP (DATABASE_URL). Schema is applied out-of-band with
+// `pnpm --filter @zveil/db db:push`, so the client is cheap to create.
 export function db(): Db {
   if (!_db) {
-    mkdirSync(path.dirname(DB_PATH), { recursive: true });
-    _db = createDb(DB_PATH);
-    seed();
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error("DATABASE_URL is not set");
+    _db = createDb(url);
   }
   return _db;
 }
 
 // Single demo workspace — the merchant using Zveil.
-function seed() {
-  if (!_db) return;
-  const existing = _db.select().from(workspaces).all();
+async function seed() {
+  const existing = await db().select().from(workspaces).limit(1);
   if (existing.length === 0) {
-    _db
+    await db()
       .insert(workspaces)
       .values({
         id: "ws-demo",
@@ -29,19 +26,22 @@ function seed() {
         email: "maya@example.com",
         defaultConfirmations: 3,
         createdAt: Date.now(),
-      })
-      .run();
+      });
   }
 }
 
-export function workspace() {
-  const rows = db().select().from(workspaces).limit(1).all();
+export async function workspace() {
+  await seed();
+  const rows = await db().select().from(workspaces).limit(1);
   return rows[0];
 }
 
-export function viewingKey() {
-  const ws = workspace();
-  return (
-    db().select().from(viewingKeys).where(eq(viewingKeys.workspaceId, ws.id)).all()[0] ?? null
-  );
+export async function viewingKey() {
+  const ws = await workspace();
+  const rows = await db()
+    .select()
+    .from(viewingKeys)
+    .where(eq(viewingKeys.workspaceId, ws.id))
+    .limit(1);
+  return rows[0] ?? null;
 }
