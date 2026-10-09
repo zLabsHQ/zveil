@@ -3,31 +3,29 @@ import { invoices, payments } from "@zveil/db";
 import { and, eq, isNull, sum } from "drizzle-orm";
 import { emitInvoice } from "./bus";
 
-export function invoicePaidZats(invoiceId: string): number {
-  const rows = db()
+export async function invoicePaidZats(invoiceId: string): Promise<number> {
+  const rows = await db()
     .select({ total: sum(payments.zats) })
     .from(payments)
-    .where(and(eq(payments.invoiceId, invoiceId), isNull(payments.reorgedAt)))
-    .all();
+    .where(and(eq(payments.invoiceId, invoiceId), isNull(payments.reorgedAt)));
   return Number(rows[0]?.total ?? 0);
 }
 
-export function maxConfirmations(invoiceId: string): number {
-  const rows = db()
+export async function maxConfirmations(invoiceId: string): Promise<number> {
+  const rows = await db()
     .select({ c: payments.confirmations })
     .from(payments)
-    .where(and(eq(payments.invoiceId, invoiceId), isNull(payments.reorgedAt)))
-    .all();
+    .where(and(eq(payments.invoiceId, invoiceId), isNull(payments.reorgedAt)));
   return rows.reduce((m, r) => Math.max(m, r.c), 0);
 }
 
 /** Recompute an invoice's status from its payments and update + broadcast. */
-export function reconcile(invoiceId: string) {
-  const inv = db().select().from(invoices).where(eq(invoices.id, invoiceId)).get();
+export async function reconcile(invoiceId: string) {
+  const [inv] = await db().select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
   if (!inv || inv.status === "void" || inv.status === "draft") return;
 
-  const total = invoicePaidZats(invoiceId);
-  const conf = maxConfirmations(invoiceId);
+  const total = await invoicePaidZats(invoiceId);
+  const conf = await maxConfirmations(invoiceId);
   const required = inv.confirmationsRequired;
   const now = Date.now();
 
@@ -52,7 +50,7 @@ export function reconcile(invoiceId: string) {
   if (status !== inv.status) {
     updates.status = status;
   }
-  db().update(invoices).set(updates).where(eq(invoices.id, invoiceId)).run();
+  await db().update(invoices).set(updates).where(eq(invoices.id, invoiceId));
   emitInvoice({ invoiceId, slug: inv.slug ?? undefined, type: "status", status });
 }
 
