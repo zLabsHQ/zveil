@@ -7,7 +7,7 @@ import { StatusBadge, type InvoiceStatus } from "@/components/status/status-badg
 import { EmptyState } from "@/components/feedback/empty-state";
 import { FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { zatsToZec } from "@zveil/zip321";
+import { zatsToZec } from "@z-labs/zip321";
 
 export interface InvoiceRow {
   id: string;

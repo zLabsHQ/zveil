@@ -9,8 +9,8 @@ export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   await connection();
-  const ws = workspace();
-  const vk = viewingKey();
+  const ws = await workspace();
+  const vk = await viewingKey();
 
   return (
     <div className="flex max-w-[640px] flex-col gap-6">

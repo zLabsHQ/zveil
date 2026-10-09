@@ -9,14 +9,13 @@ export const metadata = { title: "Invoices" };
 
 export default async function InvoicesPage() {
   await connection();
-  const ws = workspace();
-  const invs = db()
+  const ws = await workspace();
+  const invs = await db()
     .select()
     .from(invoices)
     .where(eq(invoices.workspaceId, ws.id))
-    .orderBy(desc(invoices.createdAt))
-    .all();
-  const pays = db().select().from(payments).where(isNull(payments.reorgedAt)).all();
+    .orderBy(desc(invoices.createdAt));
+  const pays = await db().select().from(payments).where(isNull(payments.reorgedAt));
   const paidBy = new Map<string, number>();
   for (const p of pays) paidBy.set(p.invoiceId, (paidBy.get(p.invoiceId) ?? 0) + p.zats);
 

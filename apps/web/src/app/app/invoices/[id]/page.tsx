@@ -12,7 +12,7 @@ import { AddressField, CopyButton } from "@/components/zcash/address-field";
 import { InvoiceActions, InvoiceLinkRow } from "@/components/invoice/invoice-actions";
 import { Banner } from "@/components/feedback/empty-state";
 import { truncateAddress } from "@/lib/utils";
-import { zatsToZec } from "@zveil/zip321";
+import { zatsToZec } from "@z-labs/zip321";
 import { zecUsd, fiatForZats } from "@/lib/pricing";
 
 /* eslint-disable react-hooks/purity -- server component; render-time clocks are fine here */
@@ -24,10 +24,10 @@ function badge(s: string): InvoiceStatus {
 export default async function InvoiceDetail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
-  const inv = db().select().from(invoices).where(eq(invoices.id, id)).get();
+  const [inv] = await db().select().from(invoices).where(eq(invoices.id, id)).limit(1);
   if (!inv) notFound();
-  const pays = db().select().from(payments).where(eq(payments.invoiceId, id)).orderBy(desc(payments.seenAt)).all();
-  const links = db().select().from(disclosures).where(eq(disclosures.invoiceId, id)).all();
+  const pays = await db().select().from(payments).where(eq(payments.invoiceId, id)).orderBy(desc(payments.seenAt));
+  const links = await db().select().from(disclosures).where(eq(disclosures.invoiceId, id));
   const rate = await zecUsd();
   const paid = pays.filter((p) => !p.reorgedAt).reduce((s, p) => s + p.zats, 0);
 

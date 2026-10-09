@@ -37,11 +37,11 @@ export function Hero() {
                   <ArrowRight className="size-4" strokeWidth={2} aria-hidden />
                 </Button>
               </Link>
-              <a href="#live-demo">
+              <Link href="/i/demo">
                 <Button size="xl" variant="secondary" className="w-full sm:w-auto">
                   See a live invoice
                 </Button>
-              </a>
+              </Link>
             </div>
           </Reveal>
           <Reveal delay={0.2}>

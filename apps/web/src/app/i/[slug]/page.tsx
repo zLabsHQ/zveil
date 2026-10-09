@@ -11,10 +11,10 @@ import { zecUsd, fiatForZats } from "@/lib/pricing";
 export default async function PayPage({ params }: { params: Promise<{ slug: string }> }) {
   await connection();
   const { slug } = await params;
-  const inv = db().select().from(invoices).where(eq(invoices.slug, slug)).get();
+  const [inv] = await db().select().from(invoices).where(eq(invoices.slug, slug)).limit(1);
   if (!inv || !inv.address || !inv.zip321Uri) notFound();
-  const ws = db().select().from(workspaces).where(eq(workspaces.id, inv.workspaceId)).get()!;
-  const pays = db().select().from(payments).where(and(eq(payments.invoiceId, inv.id), isNull(payments.reorgedAt))).all();
+  const [ws] = await db().select().from(workspaces).where(eq(workspaces.id, inv.workspaceId)).limit(1);
+  const pays = await db().select().from(payments).where(and(eq(payments.invoiceId, inv.id), isNull(payments.reorgedAt)));
   const paid = pays.reduce((s, p) => s + p.zats, 0);
   const rate = await zecUsd();
 

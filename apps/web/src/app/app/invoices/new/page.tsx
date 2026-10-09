@@ -6,7 +6,7 @@ import Link from "next/link";
 export const metadata = { title: "New invoice" };
 
 export default async function NewInvoicePage() {
-  const ws = workspace();
+  const ws = await workspace();
   const rate = await zecUsd();
   return (
     <div className="flex flex-col gap-6">

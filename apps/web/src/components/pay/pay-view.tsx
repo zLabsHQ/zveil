@@ -71,6 +71,30 @@ export function PayView(p: PayViewProps) {
     return () => es.close();
   }, [p.slug]);
 
+  // Polling fallback: SSE emits are same-process only, so on multi-instance
+  // deployments the push can miss. Poll the invoice API until terminal state.
+  useEffect(() => {
+    const iv = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/invoices/${p.invoiceId}`, { cache: "no-store" });
+        if (!r.ok) return;
+        const d = (await r.json()) as {
+          invoice: { status: string };
+          payments: { zats: number; confirmations: number | null; reorgedAt: number | null }[];
+        };
+        const live0 = d.payments.filter((x) => !x.reorgedAt);
+        setLive((v) => ({
+          status: d.invoice.status,
+          paidZats: live0.reduce((s, x) => s + x.zats, 0) || v.paidZats,
+          confirmations: Math.max(v.confirmations, ...live0.map((x) => x.confirmations ?? 0), 0),
+        }));
+      } catch {
+        /* next tick */
+      }
+    }, 3000);
+    return () => clearInterval(iv);
+  }, [p.invoiceId]);
+
   const paid = live.status === "paid" || live.status === "overpaid";
   const confirming = !paid && live.status !== "open" && live.status !== "void" && live.status !== "draft";
   const partial = live.status === "partially_paid";

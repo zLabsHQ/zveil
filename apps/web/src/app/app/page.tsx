@@ -10,7 +10,7 @@ import { EmptyState, Banner } from "@/components/feedback/empty-state";
 import { StatusBadge } from "@/components/status/status-badge";
 import { FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { zatsToZec } from "@zveil/zip321";
+import { zatsToZec } from "@z-labs/zip321";
 import { zecUsd, fiatForZats } from "@/lib/pricing";
 
 export const metadata = { title: "Dashboard" };
@@ -34,10 +34,10 @@ function toBadge(s: string): BadgeStatus {
 
 export default async function Dashboard() {
   await connection();
-  const ws = workspace();
+  const ws = await workspace();
   const rate = await zecUsd();
-  const invs = db().select().from(invoices).where(eq(invoices.workspaceId, ws.id)).all();
-  const pays = db().select().from(payments).where(isNull(payments.reorgedAt)).all();
+  const invs = await db().select().from(invoices).where(eq(invoices.workspaceId, ws.id));
+  const pays = await db().select().from(payments).where(isNull(payments.reorgedAt));
 
   const paidBy = new Map<string, number>();
   for (const p of pays) paidBy.set(p.invoiceId, (paidBy.get(p.invoiceId) ?? 0) + p.zats);

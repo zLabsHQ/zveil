@@ -8,7 +8,7 @@ import { Amount } from "@/components/money/amount";
 import { CopyButton } from "@/components/zcash/address-field";
 import { cn } from "@/lib/utils";
 import { Plus, Trash2, Zap } from "lucide-react";
-import { zecToZats } from "@zveil/zip321";
+import { zecToZats } from "@z-labs/zip321";
 
 interface Item {
   description: string;

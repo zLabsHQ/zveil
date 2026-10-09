@@ -6,7 +6,7 @@ import { viewingKey } from "@/lib/db";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   await connection();
   // Demo-mode guard: if no viewing key is connected, send user to onboarding.
-  if (!viewingKey()) redirect("/onboarding");
+  if (!(await viewingKey())) redirect("/onboarding");
   return <AppShell>{children}</AppShell>;
 }
 

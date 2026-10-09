@@ -8,7 +8,7 @@ import { ZveilWordmark } from "@/components/ui/logo";
 import { Amount } from "@/components/money/amount";
 import { CopyButton } from "@/components/zcash/address-field";
 import { truncateAddress } from "@/lib/utils";
-import { zatsToZec } from "@zveil/zip321";
+import { zatsToZec } from "@z-labs/zip321";
 import { ShieldCheck } from "lucide-react";
 
 /* eslint-disable react-hooks/purity -- server component; render-time clocks are fine here */
@@ -16,10 +16,10 @@ import { ShieldCheck } from "lucide-react";
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
-  const inv = db().select().from(invoices).where(eq(invoices.id, id)).get();
+  const [inv] = await db().select().from(invoices).where(eq(invoices.id, id)).limit(1);
   if (!inv || (inv.status !== "paid" && inv.status !== "overpaid")) notFound();
-  const pays = db().select().from(payments).where(and(eq(payments.invoiceId, id), isNull(payments.reorgedAt))).all();
-  const ws = db().select().from(workspaces).where(eq(workspaces.id, inv.workspaceId)).get()!;
+  const pays = await db().select().from(payments).where(and(eq(payments.invoiceId, id), isNull(payments.reorgedAt)));
+  const [ws] = await db().select().from(workspaces).where(eq(workspaces.id, inv.workspaceId)).limit(1);
   const total = pays.reduce((s, p) => s + p.zats, 0);
   const paidAt = new Date(inv.paidAt ?? Date.now());
 
