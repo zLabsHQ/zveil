@@ -29,7 +29,7 @@ use zcash_client_backend::{
 };
 use zcash_keys::keys::UnifiedAddressRequest;
 use zcash_protocol::{
-    consensus::{self, BlockHeight},
+    consensus::{self, BlockHeight, MainNetwork, TestNetwork},
     local_consensus::LocalNetwork,
 };
 use zip32::Scope;
@@ -44,8 +44,8 @@ pub struct ChainAccount {
     pub addresses: HashMap<[u8; 43], (String, u64)>,
 }
 
-pub struct Chain {
-    pub params: LocalNetwork,
+pub struct Chain<P: consensus::Parameters> {
+    pub params: P,
     pub endpoint: String,
     /// account_id → imported key data
     pub accounts: Mutex<HashMap<String, ChainAccount>>,
@@ -84,10 +84,10 @@ fn regtest_params() -> LocalNetwork {
     }
 }
 
-impl Chain {
-    pub fn new(endpoint: String) -> Self {
+impl<P: consensus::Parameters + Send + Sync + 'static> Chain<P> {
+    pub fn new(params: P, endpoint: String) -> Self {
         Self {
-            params: regtest_params(),
+            params,
             endpoint,
             accounts: Mutex::new(HashMap::new()),
             pending: Mutex::new(HashMap::new()),
@@ -195,8 +195,16 @@ impl Chain {
     }
 
     async fn client(&self) -> Result<CompactTxStreamerClient<Channel>, String> {
-        let channel = Channel::from_shared(self.endpoint.clone())
-            .map_err(|e| format!("bad lightwalletd url: {}", e))?
+        let mut ep = Channel::from_shared(self.endpoint.clone())
+            .map_err(|e| format!("bad lightwalletd url: {}", e))?;
+        if self.endpoint.starts_with("https://") {
+            ep = ep
+                .tls_config(
+                    tonic::transport::ClientTlsConfig::new().with_enabled_roots(),
+                )
+                .map_err(|e| format!("tls config failed: {}", e))?;
+        }
+        let channel = ep
             .connect()
             .await
             .map_err(|e| format!("lightwalletd unreachable: {}", e))?;
@@ -434,3 +442,46 @@ impl Chain {
 // `consensus` re-export used by params type inference in signatures above.
 #[allow(dead_code)]
 fn _params_ty<P: consensus::Parameters>(_: &P) {}
+
+/// Network-selected scanner handle. `Parameters` isn't dyn-compatible, so the
+/// network is chosen once at startup and carried as a concrete type.
+pub enum ChainKind {
+    Regtest(Arc<Chain<LocalNetwork>>),
+    Testnet(Arc<Chain<TestNetwork>>),
+    Mainnet(Arc<Chain<MainNetwork>>),
+}
+
+impl ChainKind {
+    /// `network`: "regtest" | "testnet" | "mainnet" (default regtest for ths compat).
+    pub fn new(network: &str, endpoint: String) -> Self {
+        match network {
+            "testnet" => Self::Testnet(Arc::new(Chain::new(TestNetwork, endpoint))),
+            "mainnet" => Self::Mainnet(Arc::new(Chain::new(MainNetwork, endpoint))),
+            _ => Self::Regtest(Arc::new(Chain::new(regtest_params(), endpoint))),
+        }
+    }
+
+    pub fn import(&self, account_id: &str, ufvk: &str, webhook_url: &str) -> Result<(), String> {
+        match self {
+            Self::Regtest(c) => c.import(account_id, ufvk, webhook_url),
+            Self::Testnet(c) => c.import(account_id, ufvk, webhook_url),
+            Self::Mainnet(c) => c.import(account_id, ufvk, webhook_url),
+        }
+    }
+
+    pub fn allocate(&self, account_id: &str, diversifier_index: u64) -> Result<String, String> {
+        match self {
+            Self::Regtest(c) => c.allocate(account_id, diversifier_index),
+            Self::Testnet(c) => c.allocate(account_id, diversifier_index),
+            Self::Mainnet(c) => c.allocate(account_id, diversifier_index),
+        }
+    }
+
+    pub async fn run(self: Arc<Self>, state: AppState) {
+        match self.as_ref() {
+            Self::Regtest(c) => c.clone().run(state).await,
+            Self::Testnet(c) => c.clone().run(state).await,
+            Self::Mainnet(c) => c.clone().run(state).await,
+        }
+    }
+}

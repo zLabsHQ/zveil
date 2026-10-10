@@ -110,8 +110,9 @@ export function PayCardDemo({ className }: { className?: string }) {
           <Amount zats={250_000_000} fiat={142.8} size="hero" />
         </div>
 
-        {/* pay zone */}
-        <AnimatePresence mode="wait" initial={false}>
+        {/* pay zone — fixed height so state changes never resize the card */}
+        <div className="mx-6 mt-5 h-[264px]">
+          <AnimatePresence mode="wait" initial={false}>
           {paid ? (
             <motion.div
               key="paid"
@@ -119,7 +120,7 @@ export function PayCardDemo({ className }: { className?: string }) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="mx-6 mt-5 flex flex-col items-center gap-3 rounded-lg border border-paid-fg/20 bg-paid-bg/60 px-4 py-6"
+              className="flex h-full flex-col items-center justify-center gap-3 rounded-lg border border-paid-fg/20 bg-paid-bg/60 px-4"
             >
               <ConfirmationRing confirmed={REQUIRED} required={REQUIRED} size={56} />
               <div className="text-center">
@@ -134,7 +135,7 @@ export function PayCardDemo({ className }: { className?: string }) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="mx-6 mt-5 flex flex-col items-center gap-4"
+              className="flex h-full flex-col items-center justify-center gap-4"
             >
               <div className="relative rounded-lg border border-border bg-surface p-3">
                 <QrCode value={DEMO_URI} size={144} />
@@ -160,7 +161,8 @@ export function PayCardDemo({ className }: { className?: string }) {
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
+          </AnimatePresence>
+        </div>
 
         {/* live status footer */}
         <div className="mx-6 mt-5 border-t border-border py-3.5" aria-live="polite">

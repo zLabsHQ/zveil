@@ -42,7 +42,7 @@ use std::{
 use uuid::Uuid;
 
 mod chain;
-use chain::Chain;
+use chain::ChainKind;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -70,7 +70,8 @@ struct AppState {
     http: reqwest::Client,
     latest_height: Arc<Mutex<u64>>,
     mode: String,
-    chain: Option<Arc<Chain>>,
+    network: String,
+    chain: Option<Arc<ChainKind>>,
 }
 
 // ---------------------------------------------------------------- types
@@ -223,7 +224,7 @@ async fn status(
     let height = *s.latest_height.lock().unwrap();
     Ok(Json(StatusResp {
         ok: true,
-        network: "regtest".into(),
+        network: s.network.clone(),
         latest_height: height,
         synced_height: height,
         accounts: s.accounts.lock().unwrap().len(),
@@ -256,7 +257,7 @@ async fn import_account(
     let acct = Account {
         id: id.clone(),
         fingerprint: fp.clone(),
-        network: "regtest".into(),
+        network: s.network.clone(),
         ufvk: b.ufvk.clone(),
         webhook_url: b.webhook_url,
         next_diversifier: 0,
@@ -266,7 +267,7 @@ async fn import_account(
     Ok(Json(ImportResp {
         account_id: id,
         fingerprint: fp,
-        network: "regtest".into(),
+        network: s.network.clone(),
     }))
 }
 
@@ -377,11 +378,15 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     // SCANNER_MODE=chain requires LIGHTWALLETD_URL (e.g. http://localhost:9067).
+    // ZCASH_NETWORK picks consensus params: regtest (ths) | testnet | mainnet.
     let mode = std::env::var("SCANNER_MODE").unwrap_or_else(|_| "demo".into());
+    let network = std::env::var("ZCASH_NETWORK").unwrap_or_else(|_| "regtest".into());
     let chain = if mode == "chain" {
         let endpoint =
             std::env::var("LIGHTWALLETD_URL").unwrap_or_else(|_| "http://localhost:9067".into());
-        Some(Arc::new(Chain::new(endpoint)))
+        let network = network.clone();
+        tracing::info!("chain mode: {} via {}", network, endpoint);
+        Some(Arc::new(ChainKind::new(&network, endpoint)))
     } else {
         None
     };
@@ -398,6 +403,7 @@ async fn main() {
         http: reqwest::Client::new(),
         latest_height: Arc::new(Mutex::new(3_512_000)),
         mode: mode.clone(),
+        network,
         chain: chain.clone(),
     };
 

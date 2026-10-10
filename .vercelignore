@@ -1,0 +1,22 @@
+# dependencies (installed on Vercel)
+**/node_modules
+**/.pnpm-store
+
+# build outputs (dist kept — zip321 publishes from it)
+**/.next
+**/target
+**/.turbo
+**/coverage
+
+# local data + env (secrets must never upload)
+**/data
+**/.env
+**/.env.local
+**/.env.*.local
+
+# vcs + tooling
+.git
+**/*.log
+.DS_Store
+.vscode
+.idea

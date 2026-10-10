@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db, viewingKey, workspace } from "@/lib/db";
-import { invoices, counters } from "@zveil/db";
+import { invoices, counters, viewingKeys } from "@zveil/db";
 import { eq, sql } from "drizzle-orm";
 import { buildPaymentUri } from "@z-labs/zip321";
 import { scanner } from "@/lib/scanner";
@@ -27,7 +27,10 @@ export async function POST(_req: Request, ctx: Ctx) {
   if (inv.amountZats <= 0)
     return NextResponse.json({ error: "Invoice needs a positive amount" }, { status: 400 });
 
-  const vk = await viewingKey();
+  // Prefer the key bound to the invoice; fall back to the workspace default.
+  const vk = inv.viewingKeyId
+    ? (await db().select().from(viewingKeys).where(eq(viewingKeys.id, inv.viewingKeyId)).limit(1))[0] ?? (await viewingKey())
+    : await viewingKey();
   if (!vk) {
     return NextResponse.json(
       { error: "Connect a viewing key first (Settings → Payment detection)" },

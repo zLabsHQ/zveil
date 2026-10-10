@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   },
   description:
     "Beautiful private invoices for people and teams paid in ZEC. Non-custodial, Ironwood-native payment detection, receipts and reconciliation.",
-  metadataBase: new URL("https://zveil.app"),
+  metadataBase: new URL(process.env.WEB_BASE_URL ?? "https://zveil.zlabs.tech"),
   openGraph: {
     title: "Zveil — Private invoices for Zcash",
     description:
