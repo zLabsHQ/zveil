@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ZveilWordmark } from "@/components/ui/logo";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/form";
 import { Eye, ShieldCheck, ArrowRight, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { checkUfvk } from "@/lib/ufvk";
 
 type Step = 0 | 1 | 2;
 
@@ -19,10 +20,18 @@ export default function Onboarding() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fp, setFp] = useState<string | null>(null);
+  const [shared, setShared] = useState(false);
+  useEffect(() => {
+    fetch("/api/status")
+      .then((r) => r.json())
+      .then((s) => setShared(Boolean(s.sharedKey)))
+      .catch(() => null);
+  }, []);
 
   const connect = async () => {
     setError(null);
-    if (ufvk.trim().length < 32) return setError("Paste a Unified Full Viewing Key (uview…)");
+    const check = checkUfvk(ufvk);
+    if (!check.ok) return setError(check.message);
     setBusy(true);
     try {
       const r = await fetch("/api/accounts/keys", {
@@ -108,7 +117,7 @@ export default function Onboarding() {
                 rows={3}
                 value={ufvk}
                 onChange={(e) => setUfvk(e.target.value)}
-                placeholder="uview1… (from ZODL → Settings → Show viewing key)"
+                placeholder="uivktest1… (Zingo/Zashi testnet → Settings → Show viewing key)"
                 className="w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-xs text-ink placeholder:font-sans placeholder:text-ink-faint focus:border-brand-300 focus:outline-none"
               />
               {error && <p className="mt-1.5 text-xs text-danger-fg">{error}</p>}
@@ -122,8 +131,23 @@ export default function Onboarding() {
               </Button>
             </div>
             <p className="mt-4 rounded-md bg-surface-sunken px-3 py-2 text-[11px] leading-4 text-ink-muted">
-              Demo: any valid-looking <span className="font-mono">uview…</span> string works when the
-              scanner is in demo mode.
+              On testnet, export your UFVK from Zingo or Zashi in testnet mode → Settings → Show
+              viewing key. Testnet keys start with <span className="font-mono">uivktest1</span> —
+              a mainnet <span className="font-mono">uview1…</span> key won&apos;t work here.
+              {shared && (
+                <>
+                  {" "}
+                  Or{" "}
+                  <button
+                    type="button"
+                    onClick={() => router.push("/app")}
+                    className="font-semibold text-brand-600 underline underline-offset-2 hover:text-brand-700"
+                  >
+                    skip — use the shared testnet key
+                  </button>
+                  .
+                </>
+              )}
             </p>
           </div>
         )}

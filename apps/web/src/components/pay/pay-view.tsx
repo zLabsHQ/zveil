@@ -76,24 +76,20 @@ export function PayView(p: PayViewProps) {
   useEffect(() => {
     const iv = setInterval(async () => {
       try {
-        const r = await fetch(`/api/invoices/${p.invoiceId}`, { cache: "no-store" });
+        const r = await fetch(`/api/pay/${p.slug}/status`, { cache: "no-store" });
         if (!r.ok) return;
-        const d = (await r.json()) as {
-          invoice: { status: string };
-          payments: { zats: number; confirmations: number | null; reorgedAt: number | null }[];
-        };
-        const live0 = d.payments.filter((x) => !x.reorgedAt);
+        const d = (await r.json()) as { status: string; paidZats: number; confirmations: number };
         setLive((v) => ({
-          status: d.invoice.status,
-          paidZats: live0.reduce((s, x) => s + x.zats, 0) || v.paidZats,
-          confirmations: Math.max(v.confirmations, ...live0.map((x) => x.confirmations ?? 0), 0),
+          status: d.status,
+          paidZats: d.paidZats || v.paidZats,
+          confirmations: Math.max(v.confirmations, d.confirmations),
         }));
       } catch {
         /* next tick */
       }
     }, 3000);
     return () => clearInterval(iv);
-  }, [p.invoiceId]);
+  }, [p.slug]);
 
   const paid = live.status === "paid" || live.status === "overpaid";
   const confirming = !paid && live.status !== "open" && live.status !== "void" && live.status !== "draft";

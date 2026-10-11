@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { invoices, payments, workspaces } from "@zveil/db";
 import { and, eq, isNull } from "drizzle-orm";
-import { signReceipt } from "@/lib/receipt";
+import { signProof } from "@/lib/receipt";
+import { ProofCode } from "@/components/proof/proof-code";
 import { ZveilWordmark } from "@/components/ui/logo";
 import { Amount } from "@/components/money/amount";
 import { CopyButton } from "@/components/zcash/address-field";
@@ -23,13 +24,17 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const total = pays.reduce((s, p) => s + p.zats, 0);
   const paidAt = new Date(inv.paidAt ?? Date.now());
 
-  const { signature } = signReceipt({
+  const code = signProof({
+    t: "receipt",
+    v: 1,
+    network: ws.network,
     invoice: `INV-${String(inv.seq ?? 0).padStart(4, "0")}`,
-    paid_at: paidAt.toISOString(),
+    paidAt: paidAt.toISOString(),
     zats: total,
-    fiat: inv.amountFiatCents ? `USD ${(inv.amountFiatCents / 100).toFixed(2)}` : undefined,
+    ...(inv.amountFiatCents ? { fiat: `USD ${(inv.amountFiatCents / 100).toFixed(2)}` } : {}),
     txids: pays.map((p) => p.txid),
     recipient: ws.businessName,
+    ...(inv.sample ? { sample: true } : {}),
   });
 
   const rows = [
@@ -38,7 +43,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
     ["Received", `${zatsToZec(total)} ZEC`],
     ...(inv.amountFiatCents ? [["Fiat equivalent", `$${(inv.amountFiatCents / 100).toFixed(2)} USD`]] : []),
     ["Recipient", ws.businessName],
-    ["Network", "Zcash · shielded (Ironwood pool)"],
+    ["Network", `Zcash ${ws.network} · shielded`],
   ] as const;
 
   return (
@@ -87,14 +92,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
               ))}
             </div>
           </div>
-          <div className="border-t border-border bg-surface-sunken px-6 py-4">
-            <div className="text-[11px] font-medium uppercase tracking-[0.05em] text-ink-muted">
-              Ed25519 receipt signature
-            </div>
-            <div className="mt-2 break-all font-mono text-[10px] leading-4 text-ink-faint">
-              {signature}
-            </div>
-          </div>
+          <ProofCode code={code} title="Signed receipt" />
         </div>
         <p className="mt-5 text-center text-[11px] leading-4 text-ink-faint">
           Zveil signatures verify the invoice was paid. Payment details remain private to the

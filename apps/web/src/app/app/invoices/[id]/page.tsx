@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
-import { invoices, payments, disclosures } from "@zveil/db";
+import { db, ownedInvoice } from "@/lib/db";
+import { payments, disclosures } from "@zveil/db";
 import { desc, eq } from "drizzle-orm";
 import { Amount } from "@/components/money/amount";
 import { StatusBadge, type InvoiceStatus } from "@/components/status/status-badge";
@@ -24,7 +24,7 @@ function badge(s: string): InvoiceStatus {
 export default async function InvoiceDetail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
-  const [inv] = await db().select().from(invoices).where(eq(invoices.id, id)).limit(1);
+  const inv = await ownedInvoice(id);
   if (!inv) notFound();
   const pays = await db().select().from(payments).where(eq(payments.invoiceId, id)).orderBy(desc(payments.seenAt));
   const links = await db().select().from(disclosures).where(eq(disclosures.invoiceId, id));

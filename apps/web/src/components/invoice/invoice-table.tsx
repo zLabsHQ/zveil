@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { zatsToZec } from "@z-labs/zip321";
+import { SampleTag } from "@/components/dashboard/widgets";
 
 export interface InvoiceRow {
   id: string;
@@ -19,6 +20,7 @@ export interface InvoiceRow {
   paidZats: number;
   dueDate: number | null;
   createdAt: number;
+  sample?: boolean;
 }
 
 const FILTERS = [
@@ -101,7 +103,10 @@ export function InvoiceTable({ rows, now }: { rows: InvoiceRow[]; now: number })
                   <span className="font-mono text-[13px] text-ink-muted">
                     {r.seq ? `INV-${String(r.seq).padStart(4, "0")}` : "Draft"}
                   </span>
-                  <span className="min-w-0 truncate text-sm font-medium text-ink">{r.clientName}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-sm font-medium text-ink">{r.clientName}</span>
+                    {r.sample && <SampleTag />}
+                  </span>
                   <span className="tabular text-sm text-ink-soft">{zatsToZec(r.amountZats)} ZEC</span>
                   <StatusBadge status={badge(display)} />
                   <span className="text-xs text-ink-muted">

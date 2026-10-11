@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/form";
 import { toast, Toaster } from "sonner";
+import { checkUfvk } from "@/lib/ufvk";
 
 export function ViewingKeyForm() {
   const router = useRouter();
@@ -21,10 +22,14 @@ export function ViewingKeyForm() {
         rows={3}
         value={ufvk}
         onChange={(e) => setUfvk(e.target.value)}
-        placeholder="uview1…"
+        placeholder="uivktest1…"
         className="w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-xs text-ink placeholder:font-sans placeholder:text-ink-faint focus:border-brand-300 focus:outline-none"
       />
       {error && <p className="mt-1.5 text-xs text-danger-fg">{error}</p>}
+      <p className="mt-1.5 text-[11px] text-ink-muted">
+        Zingo or Zashi in testnet mode → Settings → Show viewing key. Testnet keys start with{" "}
+        <span className="font-mono">uivktest1</span>.
+      </p>
       <Button
         size="sm"
         variant="secondary"
@@ -32,6 +37,8 @@ export function ViewingKeyForm() {
         disabled={busy}
         onClick={async () => {
           setError(null);
+          const check = checkUfvk(ufvk);
+          if (!check.ok) return setError(check.message);
           setBusy(true);
           try {
             const r = await fetch("/api/accounts/keys", {
