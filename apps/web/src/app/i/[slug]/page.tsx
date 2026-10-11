@@ -56,5 +56,5 @@ export default async function PayPage({ params }: { params: Promise<{ slug: stri
   );
 }
 
-// Data comes from SQLite/scanner at request time — never prerender.
+// Data comes from Postgres/scanner at request time — never prerender.
 export const instant = false;

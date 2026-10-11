@@ -42,7 +42,7 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
   const result = code ? verifyProof(code) : null;
 
   return (
-    <div className="veil-bg flex min-h-full flex-col">
+    <div className="veil-bg flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-[600px] justify-center px-4 py-6">
         <Link href="/">
           <ZveilWordmark />

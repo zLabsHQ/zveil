@@ -30,11 +30,11 @@ export interface ScannerStatus {
 
 export const scanner = {
   status: () => call<ScannerStatus>("GET", "/v1/status").catch(() => null),
-  importAccount: (ufvk: string, webhookUrl: string) =>
+  importAccount: (ufvk: string, webhookUrl: string, accountId?: string) =>
     call<{ accountId: string; fingerprint: string; network: string }>(
       "POST",
       "/v1/accounts",
-      { ufvk, webhookUrl },
+      { ufvk, webhookUrl, accountId },
     ),
   allocateAddress: (accountId: string, diversifierIndex: number) =>
     call<{ address: string; diversifierIndex: number }>(

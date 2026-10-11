@@ -47,7 +47,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   ] as const;
 
   return (
-    <div className="veil-bg flex min-h-full flex-col">
+    <div className="veil-bg flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-[520px] justify-center px-4 py-6">
         <ZveilWordmark />
       </header>

@@ -12,6 +12,9 @@ import { AlertTriangle, ArrowRight, Download, FileText, Plus } from "lucide-reac
 import { zatsToZec } from "@z-labs/zip321";
 import { zecUsd, fiatForZats } from "@/lib/pricing";
 import { FAUCET_URL } from "@/lib/network";
+import { passkeys } from "@zveil/db";
+import { eq } from "drizzle-orm";
+import { SecureBanner } from "@/components/auth/secure-banner";
 
 export const metadata = { title: "Dashboard" };
 
@@ -37,6 +40,8 @@ export default async function Dashboard() {
 
   const sentReal = real.some((i) => i.seq);
   const paidReal = ledger.pays.some((p) => realIds.has(p.invoiceId));
+  const [pk] = await db().select({ id: passkeys.id }).from(passkeys).where(eq(passkeys.workspaceId, ws.id)).limit(1);
+  const unsecured = !pk && sentReal; // prompt once the workspace has real work worth keeping
   const steps: Step[] = [
     {
       title: "Detection connected",
@@ -92,6 +97,8 @@ export default async function Dashboard() {
           <ClearSampleButton />
         </div>
       )}
+
+      {unsecured && <SecureBanner />}
 
       {onboarding && <GetStarted steps={steps} />}
 

@@ -9,6 +9,7 @@ import { QrCode } from "@/components/zcash/qr-code";
 import { CopyButton } from "@/components/zcash/address-field";
 import { ZveilWordmark } from "@/components/ui/logo";
 import { cn, truncateAddress } from "@/lib/utils";
+import { FAUCET_URL } from "@/lib/network";
 import { Wallet, Fingerprint, ReceiptText, Check } from "lucide-react";
 import Link from "next/link";
 
@@ -96,7 +97,7 @@ export function PayView(p: PayViewProps) {
   const partial = live.status === "partially_paid";
 
   return (
-    <div className="veil-bg flex min-h-full flex-col">
+    <div className="veil-bg flex flex-1 flex-col">
       {/* top strip */}
       <header className="mx-auto flex w-full max-w-[480px] items-center justify-between px-4 py-4">
         <div className="flex items-center gap-2 text-sm font-medium text-ink-soft">
@@ -255,8 +256,13 @@ export function PayView(p: PayViewProps) {
           <div className="text-xs font-medium text-ink-soft">Paid with Zcash shielded addresses</div>
           <div className="text-[11px] leading-4 text-ink-faint">
             Zveil is non-custodial and only sees a viewing key.<br />
+            On testnet? Pay with Zashi, Zingo or YWallet — free tZEC from the{" "}
+            <a href={FAUCET_URL} target="_blank" rel="noreferrer" className="underline">
+              faucet
+            </a>
+            .<br />
             Powered by Zveil ·{" "}
-            <Link href="/" className="underline">zveil.app</Link>
+            <Link href="/" className="underline">zveil.zlabs.tech</Link>
           </div>
           {p.demoMode && (
             <button

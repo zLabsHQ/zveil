@@ -103,14 +103,21 @@ impl<P: consensus::Parameters + Send + Sync + 'static> Chain<P> {
     /// Validate + register a UFVK. Returns the scanner account id.
     pub fn import(&self, account_id: &str, ufvk: &str, webhook_url: &str) -> Result<(), String> {
         self.uivk(ufvk)?; // reject malformed keys early
-        self.accounts.lock().unwrap().insert(
-            account_id.to_string(),
-            ChainAccount {
-                ufvk: ufvk.to_string(),
-                webhook_url: webhook_url.to_string(),
-                addresses: HashMap::new(),
-            },
-        );
+        let mut map = self.accounts.lock().unwrap();
+        match map.get_mut(account_id) {
+            // idempotent re-import: keep watched addresses
+            Some(a) if a.ufvk == ufvk => a.webhook_url = webhook_url.to_string(),
+            _ => {
+                map.insert(
+                    account_id.to_string(),
+                    ChainAccount {
+                        ufvk: ufvk.to_string(),
+                        webhook_url: webhook_url.to_string(),
+                        addresses: HashMap::new(),
+                    },
+                );
+            }
+        }
         Ok(())
     }
 

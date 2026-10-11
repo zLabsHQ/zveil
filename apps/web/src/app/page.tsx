@@ -7,7 +7,7 @@ import { ClosingCta, Footer } from "@/components/landing/footer";
 
 export default function Home() {
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex flex-1 flex-col">
       <LandingNav />
       <main className="flex-1">
         <Hero />

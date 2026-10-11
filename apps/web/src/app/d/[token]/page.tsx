@@ -21,7 +21,7 @@ export default async function DisclosurePage({ params }: { params: Promise<{ tok
   const [d] = await db().select().from(disclosures).where(eq(disclosures.token, token)).limit(1);
   if (!d || d.revokedAt || d.expiresAt < Date.now()) {
     return (
-      <div className="veil-bg flex min-h-full flex-col items-center justify-center px-4">
+      <div className="veil-bg flex flex-1 flex-col items-center justify-center px-4">
         <ZveilWordmark />
         <h1 className="mt-6 text-lg font-semibold text-ink-strong">Link expired or revoked</h1>
         <p className="mt-1 max-w-xs text-center text-sm text-ink-muted">
@@ -51,7 +51,7 @@ export default async function DisclosurePage({ params }: { params: Promise<{ tok
   const total = pays.reduce((s, p) => s + p.zats, 0);
 
   return (
-    <div className="veil-bg flex min-h-full flex-col">
+    <div className="veil-bg flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-[560px] items-center justify-between px-4 py-5">
         <ZveilWordmark />
         <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
@@ -110,5 +110,5 @@ export default async function DisclosurePage({ params }: { params: Promise<{ tok
   );
 }
 
-// Data comes from SQLite/scanner at request time — never prerender.
+// Data comes from Postgres/scanner at request time — never prerender.
 export const instant = false;

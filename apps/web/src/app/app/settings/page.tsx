@@ -3,6 +3,7 @@ import { viewingKey, workspace } from "@/lib/db";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Banner } from "@/components/feedback/empty-state";
 import { ViewingKeyForm, BusinessForm } from "@/components/settings/forms";
+import { SecurityCard } from "@/components/auth/security-card";
 import { Fingerprint } from "lucide-react";
 import { NETWORKS } from "@/lib/network";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,14 @@ export default async function SettingsPage() {
         <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-ink-strong">Settings</h1>
         <p className="mt-0.5 text-sm text-ink-muted">Workspace, network and payment detection.</p>
       </div>
+
+      <Card className="gap-0 py-0">
+        <CardHeader className="border-b border-border py-3.5">
+          <CardTitle className="text-sm font-semibold">Sign-in &amp; recovery</CardTitle>
+          <CardDescription>Passkeys open this workspace on any device — no email, no password</CardDescription>
+        </CardHeader>
+        <SecurityCard />
+      </Card>
 
       <Card className="gap-0 py-0">
         <CardHeader className="border-b border-border py-3.5">
@@ -95,5 +104,5 @@ export default async function SettingsPage() {
   );
 }
 
-// Data comes from SQLite/scanner at request time — never prerender.
+// Data comes from Postgres/scanner at request time — never prerender.
 export const instant = false;

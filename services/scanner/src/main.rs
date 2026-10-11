@@ -81,6 +81,10 @@ struct ImportBody {
     ufvk: String,
     #[serde(rename = "webhookUrl")]
     webhook_url: String,
+    /// Optional caller-chosen id. Re-importing the same id is idempotent and
+    /// keeps already-allocated addresses watched.
+    #[serde(rename = "accountId", default)]
+    account_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -244,7 +248,11 @@ async fn import_account(
             Json(serde_json::json!({ "error": "invalid UFVK" })),
         ));
     }
-    let id = format!("acct_{}", Uuid::new_v4().simple());
+    let id = b
+        .account_id
+        .clone()
+        .filter(|v| !v.is_empty() && v.len() <= 64 && v.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'))
+        .unwrap_or_else(|| format!("acct_{}", Uuid::new_v4().simple()));
     if let Some(chain) = &s.chain {
         chain.import(&id, &b.ufvk, &b.webhook_url).map_err(|e| {
             (
@@ -262,7 +270,12 @@ async fn import_account(
         webhook_url: b.webhook_url,
         next_diversifier: 0,
     };
-    s.accounts.lock().unwrap().insert(id.clone(), acct);
+    s.accounts
+        .lock()
+        .unwrap()
+        .entry(id.clone())
+        .and_modify(|a| a.webhook_url = acct.webhook_url.clone())
+        .or_insert(acct);
     tracing::info!("imported account {} (fp {})", id, fp);
     Ok(Json(ImportResp {
         account_id: id,

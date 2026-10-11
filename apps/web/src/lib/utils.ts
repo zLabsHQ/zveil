@@ -23,3 +23,5 @@ export function formatFiat(usd: number) {
     currency: "USD",
   }).format(usd);
 }
+
+export const invLabel = (i: { seq: number | null }) => (i.seq ? `INV-${String(i.seq).padStart(4, "0")}` : "Draft");
