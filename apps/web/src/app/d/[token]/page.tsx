@@ -10,6 +10,8 @@ import { Banner } from "@/components/feedback/empty-state";
 import { zatsToZec } from "@z-labs/zip321";
 import { truncateAddress } from "@/lib/utils";
 import { Eye } from "lucide-react";
+import { StatementView } from "@/components/proof/statement-view";
+import { buildStatement } from "@/lib/statement";
 
 /* eslint-disable react-hooks/purity -- server component; render-time clocks are fine here */
 
@@ -28,6 +30,20 @@ export default async function DisclosurePage({ params }: { params: Promise<{ tok
       </div>
     );
   }
+  if (d.kind === "statement" && d.workspaceId && d.periodFrom != null && d.periodTo != null) {
+    const s = await buildStatement(d.workspaceId, d.periodFrom, d.periodTo);
+    return (
+      <StatementView
+        s={s}
+        label={d.label}
+        from={d.periodFrom}
+        to={d.periodTo}
+        expiresAt={d.expiresAt}
+        csvHref={`/d/${token}/csv`}
+      />
+    );
+  }
+  if (!d.invoiceId) notFound();
   const [inv] = await db().select().from(invoices).where(eq(invoices.id, d.invoiceId)).limit(1);
   if (!inv) notFound();
   const pays = await db().select().from(payments).where(and(eq(payments.invoiceId, inv.id), isNull(payments.reorgedAt)));
