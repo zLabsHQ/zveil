@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db";
-import { invoices, disclosures } from "@zveil/db";
-import { eq } from "drizzle-orm";
+import { db, ownedInvoice } from "@/lib/db";
+import { disclosures } from "@zveil/db";
 import { disclosureToken, id } from "@/lib/id";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -14,7 +13,7 @@ const Body = z.object({
 
 export async function POST(req: Request, ctx: Ctx) {
   const { id: invoiceId } = await ctx.params;
-  const [inv] = await db().select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+  const inv = await ownedInvoice(invoiceId);
   if (!inv) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (inv.status === "draft" || inv.status === "void")
     return NextResponse.json({ error: "Only sent invoices can be shared" }, { status: 409 });

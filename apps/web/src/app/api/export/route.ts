@@ -1,5 +1,5 @@
-import { db, workspace } from "@/lib/db";
-import { invoices, payments } from "@zveil/db";
+import { db, workspace, paymentsFor } from "@/lib/db";
+import { invoices } from "@zveil/db";
 import { eq } from "drizzle-orm";
 import { zatsToZec } from "@z-labs/zip321";
 
@@ -10,10 +10,9 @@ function csvEscape(s: string | null | undefined): string {
 
 export async function GET() {
   const invs = await db().select().from(invoices).where(eq(invoices.workspaceId, (await workspace()).id));
-  const pays = await db().select().from(payments);
+  const pays = await paymentsFor(invs.map((i) => i.id));
   const paysBy = new Map<string, typeof pays>();
   for (const p of pays) {
-    if (p.reorgedAt) continue;
     const list = paysBy.get(p.invoiceId) ?? [];
     list.push(p);
     paysBy.set(p.invoiceId, list);

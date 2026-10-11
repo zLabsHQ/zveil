@@ -6,6 +6,7 @@ import { invoices, payments, scannerEvents } from "@zveil/db";
 import { eq, sql } from "drizzle-orm";
 import { reconcile } from "@/lib/reconcile";
 import { emitInvoice } from "@/lib/bus";
+import { zecUsd } from "@/lib/pricing";
 
 const SECRET = process.env.SCANNER_WEBHOOK_SECRET ?? "dev-secret";
 
@@ -73,6 +74,8 @@ export async function POST(req: Request) {
   if (!invoiceId) return NextResponse.json({ ok: true, unmatched: true });
 
   if (ev.type === "payment.detected" || ev.type === "payment.mined") {
+    // Snapshot the rate on first sight; conflict updates below never overwrite it.
+    const rate = await zecUsd().catch(() => null);
     await db()
       .insert(payments)
       .values({
@@ -86,6 +89,7 @@ export async function POST(req: Request) {
         minedHeight: ev.minedHeight ?? null,
         confirmations: ev.confirmations ?? (ev.type === "payment.mined" ? 1 : 0),
         seenAt: now,
+        rateUsdCents: rate ? Math.round(rate * 100) : null,
       })
       .onConflictDoUpdate({
         target: payments.id,

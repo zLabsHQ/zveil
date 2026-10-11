@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { db, viewingKey, workspace } from "@/lib/db";
+import { db, viewingKey, workspace, ownedInvoice } from "@/lib/db";
 import { invoices, counters, viewingKeys } from "@zveil/db";
 import { eq, sql } from "drizzle-orm";
 import { buildPaymentUri } from "@z-labs/zip321";
-import { scanner } from "@/lib/scanner";
+import { allocateAddress } from "@/lib/shared-key";
 import { slug8 } from "@/lib/id";
 import { emitInvoice } from "@/lib/bus";
 
@@ -20,7 +20,7 @@ async function nextCounter(key: string): Promise<number> {
 
 export async function POST(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  const [inv] = await db().select().from(invoices).where(eq(invoices.id, id)).limit(1);
+  const inv = await ownedInvoice(id);
   if (!inv) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (inv.status !== "draft")
     return NextResponse.json({ error: "Invoice is already open" }, { status: 409 });
@@ -38,13 +38,15 @@ export async function POST(_req: Request, ctx: Ctx) {
     );
   }
 
-  const seq = await nextCounter("invoiceSeq");
-  const diversifier = (await nextCounter(`diversifier:${vk.id}`)) - 1; // start at 0
+  const ws = await workspace();
+  const seq = await nextCounter(`invoiceSeq:${ws.id}`);
+  // keyed by scanner account so a key shared across workspaces never reuses an address
+  const diversifier = (await nextCounter(`diversifier:${vk.scannerAccountId}`)) - 1; // start at 0
   const memo = inv.memoSeed ?? `ZP-${seq}`;
 
   let address: string;
   try {
-    const r = await scanner.allocateAddress(vk.scannerAccountId, diversifier);
+    const r = await allocateAddress(vk.scannerAccountId, diversifier);
     address = r.address;
   } catch (e) {
     if (process.env.DEMO_MODE === "1") {
@@ -64,7 +66,7 @@ export async function POST(_req: Request, ctx: Ctx) {
       amountZats: inv.amountZats,
       memoText: memo,
       message: `Invoice INV-${String(seq).padStart(4, "0")}`,
-      label: (await workspace()).businessName,
+      label: ws.businessName,
     },
   ]);
 
@@ -79,7 +81,7 @@ export async function POST(_req: Request, ctx: Ctx) {
       zip321Uri: zip321,
       diversifierIndex: diversifier,
       viewingKeyId: vk.id,
-      confirmationsRequired: (await workspace()).defaultConfirmations,
+      confirmationsRequired: ws.defaultConfirmations,
       updatedAt: Date.now(),
     })
     .where(eq(invoices.id, id));

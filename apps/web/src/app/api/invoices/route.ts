@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db, workspace } from "@/lib/db";
-import { invoices, payments } from "@zveil/db";
+import { db, workspace, paymentsFor } from "@/lib/db";
+import { invoices } from "@zveil/db";
 import { desc, eq } from "drizzle-orm";
 import { id, memoSeed } from "@/lib/id";
 
@@ -26,10 +26,9 @@ export async function GET() {
     .from(invoices)
     .where(eq(invoices.workspaceId, ws.id))
     .orderBy(desc(invoices.createdAt));
-  const pays = await db().select().from(payments);
+  const pays = await paymentsFor(rows.map((r) => r.id));
   const paidByInvoice = new Map<string, number>();
   for (const p of pays) {
-    if (p.reorgedAt) continue;
     paidByInvoice.set(p.invoiceId, (paidByInvoice.get(p.invoiceId) ?? 0) + p.zats);
   }
   return NextResponse.json({

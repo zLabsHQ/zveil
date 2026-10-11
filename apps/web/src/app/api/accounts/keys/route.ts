@@ -4,6 +4,7 @@ import { db, workspace } from "@/lib/db";
 import { scanner, webhookUrl } from "@/lib/scanner";
 import { viewingKeys } from "@zveil/db";
 import { id } from "@/lib/id";
+import { checkUfvk, ufvkErrorMessage } from "@/lib/ufvk";
 
 const Body = z.object({ ufvk: z.string().min(32).max(4096) });
 
@@ -11,6 +12,9 @@ export async function POST(req: Request) {
   const json = await req.json().catch(() => null);
   const parsed = Body.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: "Invalid viewing key" }, { status: 400 });
+  const network = process.env.ZCASH_NETWORK ?? "testnet";
+  const check = checkUfvk(parsed.data.ufvk, network);
+  if (!check.ok) return NextResponse.json({ error: check.message }, { status: 400 });
 
   let acct;
   try {
@@ -23,9 +27,11 @@ export async function POST(req: Request) {
       const fp = createHash("sha256").update(parsed.data.ufvk).digest("hex").slice(0, 16);
       acct = { accountId: `demo-${fp}`, fingerprint: fp, network: "regtest" };
     } else {
+      const raw = e instanceof Error ? e.message : "unreachable";
+      const is400 = raw.includes("→ 400");
       return NextResponse.json(
-        { error: `Could not connect scanner: ${e instanceof Error ? e.message : "unreachable"}` },
-        { status: 502 },
+        { error: is400 ? ufvkErrorMessage(raw, network) : `Could not connect scanner: ${raw}` },
+        { status: is400 ? 400 : 502 },
       );
     }
   }

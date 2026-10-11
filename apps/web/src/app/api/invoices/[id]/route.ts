@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { db, ownedInvoice } from "@/lib/db";
 import { invoices, payments, disclosures } from "@zveil/db";
 import { eq, desc } from "drizzle-orm";
 
@@ -16,7 +16,7 @@ const Patch = z.object({
 
 export async function GET(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  const [inv] = await db().select().from(invoices).where(eq(invoices.id, id)).limit(1);
+  const inv = await ownedInvoice(id);
   if (!inv) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const pays = await db()
     .select()
@@ -29,7 +29,7 @@ export async function GET(_req: Request, ctx: Ctx) {
 
 export async function PATCH(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  const [inv] = await db().select().from(invoices).where(eq(invoices.id, id)).limit(1);
+  const inv = await ownedInvoice(id);
   if (!inv) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (inv.status !== "draft")
     return NextResponse.json({ error: "Only drafts can be edited" }, { status: 409 });
