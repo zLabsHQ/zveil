@@ -82,6 +82,7 @@ export async function POST(_req: Request, ctx: Ctx) {
       diversifierIndex: diversifier,
       viewingKeyId: vk.id,
       confirmationsRequired: ws.defaultConfirmations,
+      issuedAt: Date.now(),
       updatedAt: Date.now(),
     })
     .where(eq(invoices.id, id));

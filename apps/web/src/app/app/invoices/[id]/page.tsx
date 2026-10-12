@@ -2,14 +2,15 @@ import { connection } from "next/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, ownedInvoice } from "@/lib/db";
-import { payments, disclosures } from "@zveil/db";
-import { desc, eq } from "drizzle-orm";
+import { payments, disclosures, scannerEvents } from "@zveil/db";
+import { desc, eq, asc } from "drizzle-orm";
 import { Amount } from "@/components/money/amount";
 import { StatusBadge, type InvoiceStatus } from "@/components/status/status-badge";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Stat } from "@/components/ui/stat";
 import { AddressField, CopyButton } from "@/components/zcash/address-field";
 import { InvoiceActions, InvoiceLinkRow } from "@/components/invoice/invoice-actions";
+import { Timeline, type TimelineEvent } from "@/components/invoice/timeline";
 import { Banner } from "@/components/feedback/empty-state";
 import { truncateAddress } from "@/lib/utils";
 import { zatsToZec } from "@z-labs/zip321";
@@ -28,10 +29,93 @@ export default async function InvoiceDetail({ params }: { params: Promise<{ id: 
   if (!inv) notFound();
   const pays = await db().select().from(payments).where(eq(payments.invoiceId, id)).orderBy(desc(payments.seenAt));
   const links = await db().select().from(disclosures).where(eq(disclosures.invoiceId, id));
+  const evs = await db()
+    .select()
+    .from(scannerEvents)
+    .where(eq(scannerEvents.invoiceId, id))
+    .orderBy(asc(scannerEvents.receivedAt));
   const rate = await zecUsd();
   const paid = pays.filter((p) => !p.reorgedAt).reduce((s, p) => s + p.zats, 0);
 
   const seqLabel = inv.seq ? `INV-${String(inv.seq).padStart(4, "0")}` : "Draft invoice";
+
+  // --- Timeline: everything we observed about this invoice, in order ---
+  const timeline: TimelineEvent[] = [
+    { at: inv.createdAt, kind: "created", title: "Invoice created", detail: `for ${inv.clientName}` },
+  ];
+  if (inv.issuedAt) {
+    timeline.push({
+      at: inv.issuedAt,
+      kind: "issued",
+      title: `Issued as ${seqLabel}`,
+      detail: `unique shielded address · diversifier #${inv.diversifierIndex ?? 0}`,
+    });
+  }
+  if (evs.length > 0) {
+    for (const e of evs) {
+      const p = JSON.parse(e.payloadJson) as {
+        minedHeight?: number;
+        zats?: number;
+        pool?: string;
+        txid?: string;
+      };
+      const amt = p.zats ? `+${zatsToZec(p.zats)} ZEC` : "";
+      const meta = [amt, p.pool, p.txid ? `tx ${truncateAddress(p.txid, 8, 6)}` : ""].filter(Boolean).join(" · ");
+      if (e.type === "payment.detected")
+        timeline.push({ at: e.receivedAt, kind: "detected", title: "Payment detected in mempool", detail: meta });
+      else if (e.type === "payment.mined")
+        timeline.push({
+          at: e.receivedAt,
+          kind: "mined",
+          title: `Confirmed in block #${p.minedHeight?.toLocaleString() ?? "?"}`,
+          detail: meta,
+        });
+      else if (e.type === "payment.reorged")
+        timeline.push({ at: e.receivedAt, kind: "reorged", title: "Payment reorged out", detail: meta });
+    }
+  } else {
+    for (const p of [...pays].reverse()) {
+      timeline.push({
+        at: p.seenAt,
+        kind: "detected",
+        title: "Payment detected",
+        detail: `+${zatsToZec(p.zats)} ZEC · ${p.pool} · tx ${truncateAddress(p.txid, 8, 6)}`,
+      });
+      if (p.minedHeight)
+        timeline.push({
+          at: p.seenAt,
+          kind: "mined",
+          title: `Confirmed in block #${p.minedHeight.toLocaleString()}`,
+          detail: `${p.confirmations} confirmation${p.confirmations === 1 ? "" : "s"}`,
+        });
+    }
+  }
+  if (inv.paidAt) timeline.push({ at: inv.paidAt, kind: "paid", title: "Paid in full" });
+  if (inv.reconResolvedAt)
+    timeline.push({
+      at: inv.reconResolvedAt,
+      kind: "reconciled",
+      title: "Reconciled",
+      detail: inv.reconNote ?? undefined,
+    });
+  for (const l of links) {
+    timeline.push({
+      at: l.createdAt,
+      kind: "shared",
+      title: l.kind === "statement" ? "Income statement shared" : "Private link shared",
+      detail: `${l.label ?? "viewer"} · expires ${new Date(l.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}${l.revokedAt ? " · revoked" : ""}`,
+    });
+  }
+  timeline.sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+  if (inv.status === "open" || inv.status === "seen" || inv.status === "partially_paid" || inv.status === "overdue") {
+    timeline.push({
+      at: null,
+      kind: "awaiting",
+      title: inv.status === "partially_paid" ? "Awaiting remaining balance" : "Awaiting payment",
+      detail: inv.address ? `watching ${truncateAddress(inv.address, 12, 8)}` : undefined,
+    });
+  }
+  const now = Date.now();
 
   return (
     <div className="flex flex-col gap-6">
@@ -111,6 +195,8 @@ export default async function InvoiceDetail({ params }: { params: Promise<{ id: 
           </div>
         )}
       </Card>
+
+      <Timeline events={timeline} now={now} />
 
       {links.filter((l) => !l.revokedAt && l.expiresAt > Date.now()).length > 0 && (
         <Card className="gap-0 py-0">

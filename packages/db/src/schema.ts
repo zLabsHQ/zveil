@@ -52,6 +52,7 @@ export const invoices = pgTable(
     zip321Uri: text("zip321_uri"),
     viewingKeyId: text("viewing_key_id"),
     confirmationsRequired: integer("confirmations_required").notNull().default(3),
+    issuedAt: bigint("issued_at", { mode: "number" }), // when the invoice was sent (address + seq allocated)
     firstSeenAt: bigint("first_seen_at", { mode: "number" }),
     paidAt: bigint("paid_at", { mode: "number" }),
     sample: boolean("sample").notNull().default(false),
