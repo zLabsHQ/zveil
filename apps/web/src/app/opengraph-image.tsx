@@ -40,12 +40,12 @@ export default function OgImage() {
         </div>
 
         <div style={{ fontSize: 64, fontWeight: 700, color: "#1C1917", marginTop: 48, lineHeight: 1.15, display: "flex", flexDirection: "column" }}>
-          <span>Private invoices,</span>
-          <span>paid in Zcash.</span>
+          <span>Private books for money</span>
+          <span>you&apos;re paid in Zcash.</span>
         </div>
 
         <div style={{ fontSize: 28, color: "#78716C", marginTop: 24 }}>
-          Unique shielded address per invoice · viewing-key detection · automatic reconciliation
+          Invoices that reconcile themselves · signed proof of income · viewing keys only
         </div>
 
         <div
@@ -80,7 +80,7 @@ export default function OgImage() {
               fontWeight: 600,
             }}
           >
-            ZIP-321 · Ironwood
+            Signed proofs · Testnet
           </div>
         </div>
       </div>

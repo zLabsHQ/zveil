@@ -21,16 +21,16 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: {
-    default: "Zveil — Private invoices for Zcash",
+    default: "Zveil — Private books and proof of income for Zcash",
     template: "%s · Zveil",
   },
   description:
-    "Beautiful private invoices for people and teams paid in ZEC. Non-custodial, Ironwood-native payment detection, receipts and reconciliation.",
+    "Invoices that reconcile themselves, and signed proof of income you can share without exposing anything else. Non-custodial, viewing keys only, built on Zcash.",
   metadataBase: new URL(process.env.WEB_BASE_URL ?? "https://zveil.zlabs.tech"),
   openGraph: {
-    title: "Zveil — Private invoices for Zcash",
+    title: "Zveil — Private books and proof of income for Zcash",
     description:
-      "Send a link, they scan once, the invoice reconciles itself. Viewing keys only — never a spending key.",
+      "Invoices that reconcile themselves. Signed statements you can share with an accountant. Viewing keys only — never a spending key.",
     siteName: "Zveil",
     type: "website",
   },

@@ -106,7 +106,12 @@ export function PayView(p: PayViewProps) {
           </div>
           {p.businessName}
         </div>
-        <div className="text-xs text-ink-muted">via <ZveilWordmark className="inline-flex" /> </div>
+        <div className="text-xs text-ink-muted">
+          via{" "}
+          <Link href="/" className="transition-opacity hover:opacity-70">
+            <ZveilWordmark className="inline-flex" />
+          </Link>
+        </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col px-4 pb-16">

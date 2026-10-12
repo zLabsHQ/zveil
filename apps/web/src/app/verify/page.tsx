@@ -1,7 +1,6 @@
 import { connection } from "next/server";
-import Link from "next/link";
 import { BadgeCheck, ShieldAlert, ShieldCheck } from "lucide-react";
-import { ZveilWordmark } from "@/components/ui/logo";
+import { PublicFooter, PublicHeader } from "@/components/public/chrome";
 import { Button } from "@/components/ui/button";
 import { verifyProof, type Proof } from "@/lib/receipt";
 import { zatsToZec } from "@z-labs/zip321";
@@ -43,12 +42,9 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="veil-bg flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-[600px] justify-center px-4 py-6">
-        <Link href="/">
-          <ZveilWordmark />
-        </Link>
-      </header>
-      <main className="mx-auto w-full max-w-[600px] flex-1 px-4 pb-16">
+      <PublicHeader />
+      <main className="mx-auto flex w-full max-w-[600px] flex-1 flex-col px-4 py-8">
+        <div className="my-auto">
         <div className="rounded-xl border border-border bg-surface p-6 shadow-lg">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-brand-600">
             <BadgeCheck className="size-3.5" aria-hidden /> Proof verifier
@@ -132,7 +128,9 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
             /api/proofs/key
           </a>
         </p>
+        </div>
       </main>
+      <PublicFooter />
     </div>
   );
 }

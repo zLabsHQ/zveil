@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ZveilWordmark } from "@/components/ui/logo";
+import { PublicFooter, PublicHeader } from "@/components/public/chrome";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/form";
 import { Eye, ShieldCheck, ArrowRight, ArrowLeft, KeyRound, ChevronDown } from "lucide-react";
@@ -59,11 +58,7 @@ export default function Onboarding() {
 
   return (
     <div className="veil-bg flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-[520px] justify-center px-4 py-6">
-        <Link href="/">
-          <ZveilWordmark />
-        </Link>
-      </header>
+      <PublicHeader right={null} />
       <main className="mx-auto w-full max-w-[520px] flex-1 px-4 pb-16">
         {/* progress */}
         <div className="mb-6 flex items-center gap-1.5">
@@ -166,6 +161,7 @@ export default function Onboarding() {
           </div>
         )}
       </main>
+      <PublicFooter />
     </div>
   );
 }

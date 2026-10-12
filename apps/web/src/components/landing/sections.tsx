@@ -29,7 +29,7 @@ function Section({
   className?: string;
 }) {
   return (
-    <section id={id} className={`scroll-mt-16 py-20 sm:py-24 ${className}`}>
+    <section id={id} className={`scroll-mt-16 py-14 sm:py-24 ${className}`}>
       <div className="mx-auto max-w-[1200px] px-4 sm:px-8">
         <Reveal>
           <div className="max-w-[640px]">
@@ -38,7 +38,7 @@ function Section({
                 {eyebrow}
               </div>
             )}
-            <h2 className="mt-2 text-[30px] font-semibold leading-9 tracking-[-0.02em] text-ink-strong sm:text-[36px] sm:leading-10">
+            <h2 className="mt-2 text-[26px] font-semibold leading-8 tracking-[-0.02em] text-ink-strong sm:text-[36px] sm:leading-10">
               {title}
             </h2>
             {sub && <p className="mt-4 text-base leading-6 text-ink-soft">{sub}</p>}
@@ -52,7 +52,7 @@ function Section({
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-lg border border-border bg-surface p-6 shadow-xs ${className}`}>
+    <div className={`rounded-lg border border-border bg-surface p-5 shadow-xs sm:p-6 ${className}`}>
       {children}
     </div>
   );
@@ -84,7 +84,7 @@ export function Steps() {
       title="Three steps to a paid invoice"
       sub="No copy-pasted addresses, no “did you send it?”, no matching payments by eye."
     >
-      <div className="mt-10 grid gap-4 sm:grid-cols-3">
+      <div className="mt-8 grid gap-3 sm:mt-10 sm:grid-cols-3 sm:gap-4">
         {steps.map((s, i) => (
           <Reveal key={s.title} delay={i * 0.06}>
             <Card className="h-full">
@@ -109,7 +109,7 @@ export function UniqueAddress() {
       title="A unique shielded address for every invoice"
       sub="Each invoice generates its own diversified Zcash address. On-chain, your invoices are unlinkable — and matching never depends on the payer typing a memo."
     >
-      <div className="mt-10 grid gap-4 lg:grid-cols-2">
+      <div className="mt-8 grid gap-3 sm:mt-10 sm:gap-4 lg:grid-cols-2">
         <Reveal>
           <Card className="h-full">
             <div className="mb-3 text-xs font-medium uppercase tracking-[0.06em] text-ink-faint">
@@ -176,7 +176,7 @@ export function Privacy() {
       sub="Your payer's details stay encrypted to you. You still get the records a real business needs."
       className="bg-surface border-y border-border"
     >
-      <div className="mt-10 grid gap-4 sm:grid-cols-3">
+      <div className="mt-8 grid gap-3 sm:mt-10 sm:grid-cols-3 sm:gap-4">
         {items.map((it, i) => (
           <Reveal key={it.title} delay={i * 0.06}>
             <Card className="h-full bg-paper">
@@ -208,8 +208,8 @@ export function Standards() {
     },
     {
       icon: FileCheck2,
-      title: "Ironwood-ready",
-      body: "Detection built on the post-NU6.3 pool. Payments land where modern wallets actually send them.",
+      title: "Current shielded pools",
+      body: "Detection covers Orchard and the newest Ironwood pool — where modern wallets actually send today.",
     },
     {
       icon: Lock,
@@ -222,7 +222,7 @@ export function Standards() {
       eyebrow="Built on Zcash standards"
       title="Correct where it counts"
     >
-      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-8 grid gap-3 sm:mt-10 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         {rows.map((r, i) => (
           <Reveal key={r.title} delay={i * 0.05}>
             <div className="h-full rounded-lg border border-border bg-surface p-5">

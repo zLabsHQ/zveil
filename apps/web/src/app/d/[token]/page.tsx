@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { disclosures, invoices, payments, workspaces } from "@zveil/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { ZveilWordmark } from "@/components/ui/logo";
+import { PublicFooter, PublicHeader } from "@/components/public/chrome";
 import { Amount } from "@/components/money/amount";
 import { StatusBadge, type InvoiceStatus } from "@/components/status/status-badge";
 import { Banner } from "@/components/feedback/empty-state";
@@ -52,12 +53,13 @@ export default async function DisclosurePage({ params }: { params: Promise<{ tok
 
   return (
     <div className="veil-bg flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-[560px] items-center justify-between px-4 py-5">
-        <ZveilWordmark />
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
-          <Eye className="size-3" aria-hidden /> Private disclosure — {d.label}
-        </span>
-      </header>
+      <PublicHeader
+        right={
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
+            <Eye className="size-3" aria-hidden /> Private disclosure — {d.label}
+          </span>
+        }
+      />
       <main className="mx-auto w-full max-w-[560px] flex-1 px-4 pb-16">
         <Banner tone="info" title="Invoice-scoped view" className="mb-4">
           This link reveals only invoice INV-{String(inv.seq ?? 0).padStart(4, "0")}. Nothing else in
@@ -106,6 +108,7 @@ export default async function DisclosurePage({ params }: { params: Promise<{ tok
           )}
         </div>
       </main>
+      <PublicFooter />
     </div>
   );
 }

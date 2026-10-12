@@ -9,6 +9,7 @@ import { setVeiled, useVeiled } from "@/components/money/amount";
 import {
   ArrowUpRight,
   ArrowLeftRight,
+  BookOpen,
   Check,
   ChevronDown,
   Download,
@@ -17,6 +18,7 @@ import {
   FileText,
   KeyRound,
   LayoutDashboard,
+  Lock,
   LogOut,
   Plus,
   Search,
@@ -44,7 +46,7 @@ import {
 import { FAUCET_URL, NETWORKS } from "@/lib/network";
 import { CommandPalette } from "@/components/shell/command-palette";
 
-type NavItem = { href: string; label: string; icon: typeof FileText; exact?: boolean; external?: boolean; badge?: number };
+type NavItem = { href: string; label: string; icon: typeof FileText; exact?: boolean; external?: boolean; newTab?: boolean; badge?: number };
 
 function navGroups(exceptions: number): { title: string; items: NavItem[] }[] {
   return [
@@ -59,6 +61,14 @@ function navGroups(exceptions: number): { title: string; items: NavItem[] }[] {
     {
       title: "Reporting",
       items: [{ href: "/api/export", label: "Export ledger (CSV)", icon: Download, external: true }],
+    },
+    {
+      title: "Resources",
+      items: [
+        { href: "/how", label: "How it works", icon: BookOpen },
+        { href: "/verify", label: "Verify a proof", icon: ShieldCheck },
+        { href: FAUCET_URL, label: "Get testnet ZEC", icon: ArrowUpRight, external: true, newTab: true },
+      ],
     },
     { title: "Workspace", items: [{ href: "/app/settings", label: "Settings", icon: Settings }] },
   ];
@@ -220,7 +230,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
     </>
   );
   return item.external ? (
-    <a href={item.href} className={cls}>
+    <a href={item.href} className={cls} {...(item.newTab ? { target: "_blank", rel: "noreferrer" } : {})}>
       {body}
     </a>
   ) : (
@@ -238,15 +248,14 @@ function WorkspaceMenu({ name }: { name: string }) {
   const [sec, setSec] = useState<SecurityState>(null);
   const [leaving, setLeaving] = useState(false);
 
-  const openConfirm = () => {
-    setConfirm(true);
-    if (sec === null) {
-      fetch("/api/auth/passkeys")
-        .then((r) => r.json())
-        .then(setSec)
-        .catch(() => setSec({ passkeys: [], recoveryAvailable: false }));
-    }
-  };
+  useEffect(() => {
+    fetch("/api/auth/passkeys")
+      .then((r) => r.json())
+      .then(setSec)
+      .catch(() => setSec({ passkeys: [], recoveryAvailable: false }));
+  }, []);
+
+  const openConfirm = () => setConfirm(true);
 
   const signOut = async () => {
     setLeaving(true);
@@ -268,7 +277,10 @@ function WorkspaceMenu({ name }: { name: string }) {
           <ZveilMark size={32} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-[13px] font-semibold text-ink-strong">{name}</span>
-            <span className="text-[11px] text-ink-muted">Sandbox · Testnet</span>
+            <span className="flex items-center gap-1 text-[11px] text-ink-muted">
+              Sandbox · Testnet
+              {secured && <Lock className="size-3 text-paid-fg" strokeWidth={2.2} aria-label="Secured by passkey" />}
+            </span>
           </span>
           <ChevronDown className="size-3.5 shrink-0 text-ink-faint" strokeWidth={2} aria-hidden />
         </DropdownMenuTrigger>

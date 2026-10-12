@@ -7,9 +7,9 @@ import { ZveilWordmark } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 
 const links = [
-  { href: "#how", label: "How it works" },
-  { href: "#privacy", label: "Privacy" },
-  { href: "#pricing", label: "Pricing" },
+  { href: "/how", label: "How it works" },
+  { href: "/#privacy", label: "Privacy" },
+  { href: "/verify", label: "Verify" },
 ];
 
 export function LandingNav() {
@@ -34,13 +34,13 @@ export function LandingNav() {
         </Link>
         <nav className="hidden items-center gap-1 sm:flex" aria-label="Main">
           {links.map((l) => (
-            <a
+            <Link
               key={l.href}
               href={l.href}
               className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-hover hover:text-ink"
             >
               {l.label}
-            </a>
+            </Link>
           ))}
         </nav>
         <div className="flex items-center gap-2">

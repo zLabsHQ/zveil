@@ -1,5 +1,5 @@
 import { Download, Eye, FileText } from "lucide-react";
-import { ZveilWordmark } from "@/components/ui/logo";
+import { PublicFooter, PublicHeader } from "@/components/public/chrome";
 import { Banner } from "@/components/feedback/empty-state";
 import { ProofCode } from "@/components/proof/proof-code";
 import { zatsToZec } from "@z-labs/zip321";
@@ -28,12 +28,13 @@ export function StatementView({
   const pools = [...new Set(s.rows.map((r) => r.pool))];
   return (
     <div className="veil-bg flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-[760px] items-center justify-between px-4 py-5">
-        <ZveilWordmark />
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
-          <Eye className="size-3" aria-hidden /> Private disclosure — {label}
-        </span>
-      </header>
+      <PublicHeader
+        right={
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
+            <Eye className="size-3" aria-hidden /> Private disclosure — {label}
+          </span>
+        }
+      />
       <main className="mx-auto w-full max-w-[760px] flex-1 px-4 pb-16">
         <Banner tone="info" title="Period-scoped view" className="mb-4">
           This link shows only payments {s.workspace.businessName} received between {fmtDay(from)} and {fmtDay(to)}.
@@ -125,6 +126,7 @@ export function StatementView({
           {new Date(expiresAt).toLocaleDateString()} and can be revoked by the sender at any time.
         </p>
       </main>
+      <PublicFooter />
     </div>
   );
 }

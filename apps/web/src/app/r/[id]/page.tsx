@@ -5,7 +5,7 @@ import { invoices, payments, workspaces } from "@zveil/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { signProof } from "@/lib/receipt";
 import { ProofCode } from "@/components/proof/proof-code";
-import { ZveilWordmark } from "@/components/ui/logo";
+import { PublicFooter, PublicHeader } from "@/components/public/chrome";
 import { Amount } from "@/components/money/amount";
 import { CopyButton } from "@/components/zcash/address-field";
 import { truncateAddress } from "@/lib/utils";
@@ -48,9 +48,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="veil-bg flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-[520px] justify-center px-4 py-6">
-        <ZveilWordmark />
-      </header>
+      <PublicHeader />
       <main className="mx-auto w-full max-w-[520px] flex-1 px-4 pb-16">
         <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
           <div className="h-[3px] w-full bg-paid-fg" />
@@ -99,6 +97,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           invoice — no address history is exposed by this receipt.
         </p>
       </main>
+      <PublicFooter />
     </div>
   );
 }

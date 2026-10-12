@@ -60,7 +60,21 @@
 
   --animate-pulse-dot: pulse-dot 1.6s var(--ease-in-out) infinite;
   --animate-breathe: breathe 3s var(--ease-in-out) infinite;
+  --animate-float: float 6s var(--ease-in-out) infinite;
+  --animate-marquee: marquee 32s linear infinite;
+  --animate-aurora: aurora 16s var(--ease-in-out) infinite alternate;
 
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes marquee {
+    to { transform: translateX(-50%); }
+  }
+  @keyframes aurora {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to { transform: translate3d(48px, -24px, 0) scale(1.18); }
+  }
   @keyframes pulse-dot {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.55; transform: scale(0.85); }
@@ -78,11 +92,18 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     scroll-behavior: smooth;
+    overflow-x: clip;
     @apply font-sans;
   }
   ::selection {
     background: var(--color-brand-100);
     color: var(--color-ink-strong);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
   }
   :focus-visible {
     outline: none;
@@ -92,6 +113,7 @@
     @apply border-border outline-ring/50;
   }
   body {
+    overflow-x: clip;
     @apply bg-background text-foreground;
   }
 }
